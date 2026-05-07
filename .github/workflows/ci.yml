@@ -19,21 +19,6 @@ permissions:
 
 jobs:
   test:
-    # Set up a Postgres DB service. By default, Phoenix applications
-    # use Postgres. This creates a database for running tests.
-    # Additional services can be defined here if required.
-    # services:
-    #   db:
-    #     image: postgres:12
-    #     ports: ['5432:5432']
-    #     env:
-    #       POSTGRES_PASSWORD: postgres
-    #     options: >-
-    #       --health-cmd pg_isready
-    #       --health-interval 10s
-    #       --health-timeout 5s
-    #       --health-retries 5
-
     runs-on: ubuntu-latest
     name: Test on OTP ${{matrix.otp}} / Elixir ${{matrix.elixir}}
     strategy:
@@ -66,12 +51,12 @@ jobs:
 
     # Step: Check out the code.
     - name: Checkout code
-      uses: actions/checkout@v3
+      uses: actions/checkout@v6
 
     # Step: Define how to cache deps. Restores existing cache if present.
     - name: Cache deps
       id: cache-deps
-      uses: actions/cache@v3
+      uses: actions/cache@v5
       env:
         cache-name: cache-elixir-deps
       with:
@@ -85,7 +70,7 @@ jobs:
     # project's downloaded deps every run.
     - name: Cache compiled build
       id: cache-build
-      uses: actions/cache@v3
+      uses: actions/cache@v5
       env:
         cache-name: cache-compiled-build
       with:
