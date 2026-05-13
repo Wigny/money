@@ -121,7 +121,7 @@ Localize.get_locale()
 Cldr.Currency.new(:XBTC, name: "Bitcoin", symbol: "₿", digits: 8)
 
 # After (6.0):
-Localize.Currency.new(:XBTC, name: "Bitcoin", symbol: "₿", digits: 8)
+Money.Currency.new(:XBTC, name: "Bitcoin", symbol: "₿", digits: 8)
 ```
 
 ### Update error handling
@@ -160,14 +160,14 @@ It is possible to define private use currencies. These are currencies that are [
 
 ### Defining private use and custom currencies
 
-See `Localize.Currency.new/2`.
+See `Money.Currency.new/2`.
 
 ### Custom currency store
 
-The `Localize.Currency.Store` GenServer is started automatically by the `localize` application and manages the storage of custom currency definitions. Custom currencies can be defined at any time after application startup:
+The `Money.Currency.Store` GenServer is started automatically by the `ex_money` application and manages the storage of custom currency definitions. Custom currencies can be defined at any time after application startup:
 
 ```elixir
-Localize.Currency.new(:XBTC, name: "Bitcoin", symbol: "₿", digits: 8)
+Money.Currency.new(:XBTC, name: "Bitcoin", symbol: "₿", digits: 8)
 ```
 
 ## Exchange rates and currency conversion
@@ -869,7 +869,7 @@ All `Money` calculations are done with decimal arithmetic to the maxium precisio
 
 **13. All currencies have an ISO 4217 3-letter code. (The Transnistrian ruble has none, for example)**
 
-`Money` does validate currency codes against the ISO 4217 list. Custom currencies can be created in accordance with ISO 4217 using `Localize.Currency.new/2`.
+`Money` does validate currency codes against the ISO 4217 list. Custom currencies can be created in accordance with ISO 4217 using `Money.Currency.new/2`.
 
 **14. All currencies have a different name. (French franc, "nouveau franc")**
 
