@@ -351,7 +351,7 @@ defmodule Money.ExchangeRates.Retriever do
     {:noreply, config}
   end
 
-  defp retrieve_latest_rates(%{callback_module: callback_module} = config) do
+  defp retrieve_latest_rates(config) do
     case config.api_module.get_latest_rates(config) do
       {:ok, :not_modified} ->
         log(config, :success, "Retrieved latest exchange rates successfully. Rates unchanged.")
@@ -360,7 +360,7 @@ defmodule Money.ExchangeRates.Retriever do
       {:ok, rates} ->
         retrieved_at = DateTime.utc_now()
         config.cache_module.store_latest_rates(rates, retrieved_at)
-        apply(callback_module, :latest_rates_retrieved, [rates, retrieved_at])
+        if config.callback_module, do: config.callback_module.latest_rates_retrieved(rates, retrieved_at)
         log(config, :success, "Retrieved latest exchange rates successfully")
         {:ok, rates}
 
@@ -370,7 +370,7 @@ defmodule Money.ExchangeRates.Retriever do
     end
   end
 
-  defp retrieve_historic_rates(date, %{callback_module: callback_module} = config) do
+  defp retrieve_historic_rates(date, config) do
     case config.api_module.get_historic_rates(date, config) do
       {:ok, :not_modified} ->
         log(config, :success, "Historic exchange rates for #{Date.to_string(date)} are unchanged")
@@ -378,7 +378,7 @@ defmodule Money.ExchangeRates.Retriever do
 
       {:ok, rates} ->
         config.cache_module.store_historic_rates(rates, date)
-        apply(callback_module, :historic_rates_retrieved, [rates, date])
+        if config.callback_module, do: config.callback_module.historic_rates_retrieved(rates, date)
 
         log(
           config,

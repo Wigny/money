@@ -13,7 +13,7 @@ defmodule Money.ExchangeRates do
         auto_start_exchange_rate_service: false,
         exchange_rates_retrieve_every: 300_000,
         api_module: Money.ExchangeRates.OpenExchangeRates,
-        callback_module: Money.ExchangeRates.Callback,
+        callback_module: nil,
         preload_historic_rates: nil
         log_failure: :warn,
         log_info: :info,
@@ -34,11 +34,11 @@ defmodule Money.ExchangeRates do
     `Money.ExchangeRates` behaviour. The default is
     `Money.ExchangeRates.OpenExchangeRates`.
 
-  * `:callback_module` defines a module that follows the
-    `Money.ExchangeRates.Callback` behaviour whereby the functions
+  * `:callback_module` defines a module that implements the
+    `Money.ExchangeRates.Callback` behaviour. The functions
     `latest_rates_retrieved/2` and `historic_rates_retrieved/2` are
     invoked after every successful retrieval of exchange rates.
-    The default is `Money.ExchangeRates.Callback`.
+    The default is `nil`, meaning no callback is invoked.
 
   * `:preload_historic_rates` defines a date or a date range
     that will be requested when the exchange rate service starts up.
@@ -162,7 +162,7 @@ defmodule Money.ExchangeRates do
   alias Money.ExchangeRates.Retriever
 
   @default_retrieval_interval :never
-  @default_callback_module Money.ExchangeRates.Callback
+  @default_callback_module nil
   @default_api_module Money.ExchangeRates.OpenExchangeRates
   @default_cache_module Money.ExchangeRates.Cache.Ets
 
