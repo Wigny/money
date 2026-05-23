@@ -192,9 +192,10 @@ defmodule Money.ExchangeRates.Retriever do
   def retrieve_rates(url, config) when is_list(url) do
     url = List.to_string(url)
     headers = if_none_match_header(url)
+    http_client = Money.get_env(:exchange_rates_http_client, Localize.Utils.Http, :module)
 
     {url, headers}
-    |> Localize.Utils.Http.get_with_headers(verify_peer: Map.get(config, :verify_peer, true))
+    |> http_client.get_with_headers(verify_peer: Map.get(config, :verify_peer, true))
     |> process_response(url, config)
   end
 
