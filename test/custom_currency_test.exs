@@ -293,24 +293,6 @@ defmodule Money.CustomCurrencyTest do
     end
   end
 
-  # ── Exchange rate behavior (pre-existing coverage) ───────────
-
-  describe "exchange rate conversion" do
-    test "without rates fails" do
-      m1 = Money.new(:ABCD, 10)
-
-      assert Money.to_currency(m1, :USD) ==
-               {:error,
-                {Money.ExchangeRateError, "No exchange rate is available for currency :ABCD"}}
-    end
-
-    test "with supplied rates succeeds" do
-      m1 = Money.new(:ABCD, 10)
-
-      assert {:ok, m2} = Money.to_currency(m1, :USD, %{ABCD: 10, USD: 1})
-      assert m2 == Money.new(:USD, "1.0")
-    end
-  end
 
   # ── Startup registration ──────────────────────────────────────
 
