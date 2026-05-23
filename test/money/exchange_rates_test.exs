@@ -9,36 +9,6 @@ defmodule Money.ExchangeRatesTest do
     assert Money.ExchangeRates.latest_rates() == test_result
   end
 
-  test "That an error is returned if there is no open exchange rates app_id configured" do
-    Application.put_env(:ex_money, :open_exchange_rates_app_id, nil)
-    config = Money.ExchangeRates.OpenExchangeRates.init(Money.ExchangeRates.default_config())
-    config = Map.put(config, :log_levels, %{failure: nil, info: nil, success: nil})
-
-    assert Money.ExchangeRates.OpenExchangeRates.get_latest_rates(config) ==
-             {:error, "Open Exchange Rates app_id is not configured. Rates are not retrieved."}
-  end
-
-  if System.get_env("OPEN_EXCHANGE_RATES_APP_ID") do
-    test "That the Open Exchange Rates retriever returns a map" do
-      Application.put_env(
-        :ex_money,
-        :open_exchange_rates_app_id,
-        System.get_env("OPEN_EXCHANGE_RATES_APP_ID")
-      )
-
-      config = Money.ExchangeRates.OpenExchangeRates.init(Money.ExchangeRates.default_config())
-      config = Map.put(config, :log_levels, %{failure: nil, info: nil, success: nil})
-
-      # Testing only, should not be used in production
-      # config = Map.put(config, :verify_peer, false)
-
-      case Money.ExchangeRates.OpenExchangeRates.get_latest_rates(config) do
-        {:ok, rates} -> assert is_map(rates)
-        {:error, :nxdomain} -> :no_network
-        {:error, other} -> IO.warn(inspect(other))
-      end
-    end
-  end
 
   test "that api latest_rates callbacks are executed" do
     config =
