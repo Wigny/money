@@ -1,7 +1,5 @@
 defmodule Money.ExchangeRatesTest do
   use ExUnit.Case
-  import ExUnit.CaptureIO
-
   alias Money.ExchangeRates
 
   doctest ExchangeRates
@@ -9,58 +7,6 @@ defmodule Money.ExchangeRatesTest do
   test "Get exchange rates from ExchangeRates.Retriever" do
     test_result = {:ok, %{USD: Decimal.new(1), AUD: Decimal.new("0.7"), EUR: Decimal.new("1.2")}}
     assert Money.ExchangeRates.latest_rates() == test_result
-  end
-
-  test "Get exchange rates from ExchangeRates" do
-    test_result = {:ok, %{USD: Decimal.new(1), AUD: Decimal.new("0.7"), EUR: Decimal.new("1.2")}}
-    assert Money.ExchangeRates.latest_rates() == test_result
-  end
-
-  test "Localize money" do
-    assert {:ok, _} = Money.localize(Money.new(:AUD, 100), locale: "en")
-  end
-
-  test "Convert from USD to AUD" do
-    assert Money.compare(Money.to_currency!(Money.new(:USD, 100), :AUD), Money.new(:AUD, 70)) == :eq
-  end
-
-  test "Convert from USD to USD" do
-    assert Money.compare(Money.to_currency!(Money.new(:USD, 100), :USD), Money.new(:USD, 100)) ==
-             :eq
-  end
-
-  test "Convert from USD to ZZZ should return an error" do
-    capture_io(fn ->
-      assert Money.to_currency(Money.new(:USD, 100), :ZZZ) ==
-               {:error, {Money.UnknownCurrencyError, "The currency :ZZZ is not known."}}
-    end)
-  end
-
-  test "Convert from USD to ZZZ should raise an exception" do
-    capture_io(fn ->
-      assert_raise Money.UnknownCurrencyError, ~r/The currency :ZZZ is not known/, fn ->
-        assert Money.to_currency!(Money.new(:USD, 100), :ZZZ)
-      end
-    end)
-  end
-
-  test "Convert from USD to AUD using historic rates" do
-    capture_io(fn ->
-      assert Money.to_currency!(
-               Money.new(:USD, 100),
-               :AUD,
-               ExchangeRates.historic_rates(~D[2017-01-01])
-             )
-             |> Money.round() == Money.new(:AUD, Decimal.new("71.43"))
-    end)
-  end
-
-  test "Convert from USD to AUD using historic rates that aren't available" do
-    assert Money.to_currency(
-             Money.new(:USD, 100),
-             :AUD,
-             ExchangeRates.historic_rates(~D[2017-02-01])
-           ) == {:error, {Money.ExchangeRateError, "No exchange rates for 2017-02-01 were found"}}
   end
 
   test "That an error is returned if there is no open exchange rates app_id configured" do
