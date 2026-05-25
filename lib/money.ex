@@ -3091,7 +3091,7 @@ defmodule Money do
 
   defp to_maybe_integer(nil), do: nil
   defp to_maybe_integer(n) when is_integer(n), do: n
-  defp to_maybe_integer(n) when is_atom(n), do: n
+  defp to_maybe_integer(n) when is_atom(n), do: nil
   defp to_maybe_integer(n) when is_binary(n), do: String.to_integer(n)
 
   defp to_module(nil), do: nil
