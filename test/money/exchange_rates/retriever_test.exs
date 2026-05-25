@@ -5,47 +5,6 @@ defmodule Money.ExchangeRates.RetrieverTest do
 
   doctest Retriever
 
-  setup do
-    Application.put_env(:ex_money, :exchange_rates_http_client, Money.ExchangeRatesHttpMock)
-
-    on_exit(fn ->
-      Application.delete_env(:ex_money, :exchange_rates_http_client)
-      # :etag_cache outlives the test process; clean up so later tests get a fresh response
-      :ets.delete(:etag_cache, "http://success.example.com")
-    end)
-
-    {:ok, config: Money.ExchangeRates.default_config()}
-  end
-
-  describe "retrieve_rates/2" do
-    test "returns decoded rates on success", %{config: config} do
-      assert {:ok, rates} = Retriever.retrieve_rates("http://success.example.com", config)
-
-      assert rates == %{
-               AUD: Decimal.from_float(1.5),
-               EUR: Decimal.from_float(0.9),
-               USD: Decimal.from_float(1.0)
-             }
-    end
-
-    test "returns an error tuple on HTTP failure", %{config: config} do
-      assert {:error, {Money.ExchangeRateError, ":nxdomain"}} =
-               Retriever.retrieve_rates("http://error.example.com", config)
-    end
-
-    test "first request returns decoded rates and stores the ETag", %{config: config} do
-      assert {:ok, _rates} = Retriever.retrieve_rates("http://success.example.com", config)
-
-      assert [{"http://success.example.com", {~c"test-etag-123", _date}}] =
-               :ets.lookup(:etag_cache, "http://success.example.com")
-    end
-
-    test "second request with cached ETag returns :not_modified", %{config: config} do
-      {:ok, _rates} = Retriever.retrieve_rates("http://success.example.com", config)
-      assert {:ok, :not_modified} = Retriever.retrieve_rates("http://success.example.com", config)
-    end
-  end
-
   describe "historic_rates/1" do
     test "returns rates for a single date" do
       assert Retriever.historic_rates(~D[2017-01-01]) ==

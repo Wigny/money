@@ -3,22 +3,24 @@ defmodule Money.ExchangeRates.OpenExchangeRatesTest do
 
   alias Money.ExchangeRates.OpenExchangeRates
 
+  @etag_cache :open_exchange_rates_etag_cache
+
   defmodule HttpMock do
+    @etag ~c"test-etag-123"
+    @date ~c"Mon, 01 Jan 2024 00:00:00 GMT"
+    @response_headers [{~c"etag", @etag}, {~c"date", @date}]
     @rates_body ~c({"base":"USD","rates":{"USD":1.0,"EUR":0.9,"AUD":1.5}})
 
-    def get_with_headers(
-          {"https://openexchangerates.org/api/latest.json?app_id=test_app_id", _headers},
-          _opts
-        ) do
-      {:ok, [], @rates_body}
+    def get_with_headers({"http://error.example.com" <> _, _headers}, _opts) do
+      {:error, :nxdomain}
     end
 
-    def get_with_headers(
-          {"https://openexchangerates.org/api/historical/2024-01-15.json?app_id=test_app_id",
-           _headers},
-          _opts
-        ) do
-      {:ok, [], @rates_body}
+    def get_with_headers({_url, headers}, _opts) do
+      if :proplists.get_value(~c"If-None-Match", headers) == :undefined do
+        {:ok, @response_headers, @rates_body}
+      else
+        {:not_modified, @response_headers}
+      end
     end
   end
 
@@ -27,6 +29,10 @@ defmodule Money.ExchangeRates.OpenExchangeRatesTest do
       Application.delete_env(:ex_money, :open_exchange_rates_app_id)
       Application.delete_env(:ex_money, :open_exchange_rates_url)
       Application.delete_env(:ex_money, :exchange_rates_http_client)
+
+      if :ets.info(@etag_cache) != :undefined do
+        :ets.delete_all_objects(@etag_cache)
+      end
     end)
 
     :ok
@@ -60,18 +66,6 @@ defmodule Money.ExchangeRates.OpenExchangeRatesTest do
     end
   end
 
-  describe "decode_rates/1" do
-    test "decodes a JSON body into the rates map" do
-      json = ~c({"base":"USD","rates":{"EUR":0.9,"AUD":1.5,"USD":1}})
-
-      assert OpenExchangeRates.decode_rates(json) == %{
-               EUR: Decimal.from_float(0.9),
-               AUD: Decimal.from_float(1.5),
-               USD: Decimal.new(1)
-             }
-    end
-  end
-
   describe "get_latest_rates/1" do
     setup do: %{config: init_config()}
 
@@ -90,6 +84,26 @@ defmodule Money.ExchangeRates.OpenExchangeRatesTest do
                EUR: Decimal.from_float(0.9),
                AUD: Decimal.from_float(1.5)
              }
+    end
+
+    test "returns an error tuple on HTTP failure" do
+      config = init_config(url: "http://error.example.com")
+
+      assert {:error, {Money.ExchangeRateError, ":nxdomain"}} =
+               OpenExchangeRates.get_latest_rates(config)
+    end
+
+    test "stores the ETag in the cache after a successful request", %{config: config} do
+      url = "https://openexchangerates.org/api/latest.json?app_id=test_app_id"
+      OpenExchangeRates.get_latest_rates(config)
+
+      assert [{^url, {~c"test-etag-123", _date}}] = :ets.lookup(@etag_cache, url)
+    end
+
+    test "returns :not_modified on a second request with a cached ETag", %{config: config} do
+      {:ok, _rates} = OpenExchangeRates.get_latest_rates(config)
+
+      assert {:ok, :not_modified} = OpenExchangeRates.get_latest_rates(config)
     end
   end
 
@@ -122,6 +136,10 @@ defmodule Money.ExchangeRates.OpenExchangeRatesTest do
     )
 
     Application.put_env(:ex_money, :exchange_rates_http_client, HttpMock)
+
+    if url = Keyword.get(opts, :url) do
+      Application.put_env(:ex_money, :open_exchange_rates_url, url)
+    end
 
     OpenExchangeRates.init(Money.ExchangeRates.default_config())
   end

@@ -16,11 +16,6 @@ defmodule Money.ExchangeRatesMock do
   end
 
   @impl true
-  def decode_rates(rates) do
-    Money.ExchangeRates.OpenExchangeRates.decode_rates(rates)
-  end
-
-  @impl true
   def get_latest_rates(_config) do
     get_rates(@latest_url)
   end

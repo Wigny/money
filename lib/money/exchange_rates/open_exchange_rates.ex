@@ -25,11 +25,10 @@ defmodule Money.ExchangeRates.OpenExchangeRates do
 
   """
 
-  alias Money.ExchangeRates.Retriever
-
   @behaviour Money.ExchangeRates
 
   @open_exchange_rate_url "https://openexchangerates.org/api"
+  @etag_cache :open_exchange_rates_etag_cache
 
   @doc """
   Update the retriever configuration to include the requirements
@@ -47,35 +46,12 @@ defmodule Money.ExchangeRates.OpenExchangeRates do
   def init(default_config) do
     url = Money.get_env(:open_exchange_rates_url, @open_exchange_rate_url)
     app_id = Money.get_env(:open_exchange_rates_app_id, nil)
+
+    if :ets.info(@etag_cache) == :undefined do
+      :ets.new(@etag_cache, [:named_table, :public])
+    end
+
     Map.put(default_config, :retriever_options, %{url: url, app_id: app_id})
-  end
-
-  @doc """
-  Decodes the JSON body returned by the Open Exchange Rates API.
-
-  * `body` is the raw response body as a binary or charlist.
-
-  Returns:
-
-  * A map of currency code atoms to `Decimal` exchange rate values.
-  """
-  @impl true
-  def decode_rates(body) when is_list(body) do
-    body
-    |> List.to_string()
-    |> decode_rates()
-  end
-
-  def decode_rates(body) when is_binary(body) do
-    %{"base" => _base, "rates" => rates} = :json.decode(body)
-
-    rates
-    |> Localize.Utils.Map.atomize_keys()
-    |> Enum.map(fn
-      {k, v} when is_float(v) -> {k, Decimal.from_float(v)}
-      {k, v} when is_integer(v) -> {k, Decimal.new(v)}
-    end)
-    |> Enum.into(%{})
   end
 
   @doc """
@@ -89,11 +65,14 @@ defmodule Money.ExchangeRates.OpenExchangeRates do
 
   * `{:ok, rates}` if the rates can be retrieved
 
+  * `{:ok, :not_modified}` if the rates are unchanged since the last retrieval
+
   * `{:error, reason}` if rates cannot be retrieved
 
   Typically this function is called by the exchange rates retrieval
   service although it can be called outside that context as
-  required.
+  required. When called outside the retrieval service, `init/1`
+  must be called first to initialise the ETag cache.
 
   """
   @impl true
@@ -109,7 +88,7 @@ defmodule Money.ExchangeRates.OpenExchangeRates do
 
   @latest_rates "/latest.json"
   defp retrieve_latest_rates(url, app_id, config) do
-    Retriever.retrieve_rates(url <> @latest_rates <> "?app_id=" <> app_id, config)
+    request(url <> @latest_rates <> "?app_id=" <> app_id, config)
   end
 
   @doc """
@@ -129,7 +108,8 @@ defmodule Money.ExchangeRates.OpenExchangeRates do
 
   Typically this function is called by the exchange rates retrieval
   service although it can be called outside that context as
-  required.
+  required. When called outside the retrieval service, `init/1`
+  must be called first to initialise the ETag cache.
   """
   @impl true
   def get_historic_rates(date, config) do
@@ -143,20 +123,83 @@ defmodule Money.ExchangeRates.OpenExchangeRates do
   end
 
   @historic_rates "/historical/"
-  defp retrieve_historic_rates(%Date{calendar: Calendar.ISO} = date, url, app_id, config) do
-    date_string = Date.to_string(date)
-
-    Retriever.retrieve_rates(
-      url <> @historic_rates <> "#{date_string}.json" <> "?app_id=" <> app_id,
+  defp retrieve_historic_rates(date, url, app_id, config) do
+    request(
+      url <> @historic_rates <> Date.to_string(date) <> ".json" <> "?app_id=" <> app_id,
       config
     )
   end
 
-  defp retrieve_historic_rates(%{year: year, month: month, day: day}, url, app_id, config) do
-    case Date.new(year, month, day) do
-      {:ok, date} -> retrieve_historic_rates(date, url, app_id, config)
-      error -> error
+  defp request(url, config) do
+    headers = if_none_match_header(url)
+    http_client = Money.get_env(:exchange_rates_http_client, Localize.Utils.Http, :module)
+
+    {url, headers}
+    |> http_client.get_with_headers(verify_peer: config.verify_peer)
+    |> process_response(url)
+  end
+
+  defp process_response({:ok, headers, body}, url) do
+    cache_etag(headers, url)
+    {:ok, decode_rates(body)}
+  end
+
+  defp process_response({:not_modified, headers}, url) do
+    cache_etag(headers, url)
+    {:ok, :not_modified}
+  end
+
+  defp process_response({:error, reason}, _url) do
+    {:error, {Money.ExchangeRateError, "#{inspect(reason)}"}}
+  end
+
+  defp if_none_match_header(url) do
+    case get_etag(url) do
+      {etag, date} ->
+        [
+          {~c"If-None-Match", etag},
+          {~c"If-Modified-Since", date}
+        ]
+
+      _ ->
+        []
     end
+  end
+
+  defp cache_etag(headers, url) do
+    etag = :proplists.get_value(~c"etag", headers)
+    date = :proplists.get_value(~c"date", headers)
+
+    if etag != :undefined and date != :undefined do
+      :ets.insert(@etag_cache, {url, {etag, date}})
+    else
+      :ets.delete(@etag_cache, url)
+    end
+  end
+
+  defp get_etag(url) do
+    case :ets.lookup(@etag_cache, url) do
+      [{^url, cached_value}] -> cached_value
+      [] -> nil
+    end
+  end
+
+  defp decode_rates(body) when is_list(body) do
+    body
+    |> List.to_string()
+    |> decode_rates()
+  end
+
+  defp decode_rates(body) when is_binary(body) do
+    %{"base" => _base, "rates" => rates} = :json.decode(body)
+
+    rates
+    |> Localize.Utils.Map.atomize_keys()
+    |> Enum.map(fn
+      {k, v} when is_float(v) -> {k, Decimal.from_float(v)}
+      {k, v} when is_integer(v) -> {k, Decimal.new(v)}
+    end)
+    |> Enum.into(%{})
   end
 
   defp app_id_not_configured do
