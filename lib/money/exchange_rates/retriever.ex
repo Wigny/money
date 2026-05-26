@@ -157,15 +157,6 @@ defmodule Money.ExchangeRates.Retriever do
   end
 
   @doc """
-  Updates the configuration for the Exchange Rate
-  Service
-
-  """
-  def reconfigure(%Money.ExchangeRates.Config{} = config) do
-    GenServer.call(__MODULE__, {:reconfigure, config})
-  end
-
-  @doc """
   Returns the current configuration of the Exchange Rates
   Retrieval service
 
@@ -219,13 +210,6 @@ defmodule Money.ExchangeRates.Retriever do
   @doc false
   def handle_call({:historic_rates, date}, _from, config) do
     {:reply, retrieve_historic_rates(date, config), config}
-  end
-
-  @doc false
-  def handle_call({:reconfigure, new_configuration}, _from, config) do
-    config.cache_module.terminate()
-    {:ok, new_config} = init(new_configuration)
-    {:reply, new_config, new_config}
   end
 
   @doc false

@@ -115,31 +115,4 @@ defmodule Money.ExchangeRates.RetrieverTest do
     end
   end
 
-  describe "reconfigure/1" do
-    setup do
-      original = Retriever.config()
-      on_exit(fn -> Retriever.reconfigure(original) end)
-      {:ok, config: original}
-    end
-
-    test "config/0 reflects the updated field after reconfigure", %{config: config} do
-      new_config = %{config | callback_module: Money.ExchangeRatesCallbackMock}
-
-      Retriever.reconfigure(new_config)
-
-      assert Retriever.config().callback_module == Money.ExchangeRatesCallbackMock
-    end
-
-    test "only the changed field differs from the previous config", %{config: config} do
-      new_log_levels = %{success: :debug, failure: :error, info: :debug}
-      new_config = %{config | log_levels: new_log_levels}
-
-      Retriever.reconfigure(new_config)
-
-      running = Retriever.config()
-      assert running.log_levels == new_log_levels
-      assert running.api_module == config.api_module
-      assert running.cache_module == config.cache_module
-    end
-  end
 end
