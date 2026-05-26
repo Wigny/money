@@ -19,7 +19,7 @@ defmodule Money.ExchangeRates.Cache.EtsDets do
       end
 
       @impl true
-      def historic_rates(%Date{calendar: Calendar.ISO} = date) do
+      def historic_rates(date) do
         case get(date) do
           nil ->
             {:error,
@@ -28,12 +28,6 @@ defmodule Money.ExchangeRates.Cache.EtsDets do
           rates ->
             {:ok, rates}
         end
-      end
-
-      @impl true
-      def historic_rates(%{year: year, month: month, day: day}) do
-        {:ok, date} = Date.new(year, month, day)
-        historic_rates(date)
       end
 
       @impl true
