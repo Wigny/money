@@ -195,7 +195,7 @@ defmodule Money.ExchangeRates.Supervisor do
   end
 
   defp start_retriever! do
-    case ExchangeRates.Retriever.start() do
+    case ExchangeRates.Retriever.start_link(@child_name) do
       {:ok, _pid} -> :ok
       {:error, reason} -> raise "Unhandled error starting retriever; #{inspect(reason)}"
     end

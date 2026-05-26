@@ -17,38 +17,6 @@ defmodule Money.ExchangeRates.Retriever do
   use GenServer
   require Logger
 
-  @doc """
-  Starts the exchange rates retrieval service
-  """
-  def start(config \\ Money.ExchangeRates.config()) do
-    Money.ExchangeRates.Supervisor.start_retriever(config)
-  end
-
-  @doc """
-  Stop the exchange rates retrieval service.
-
-  The service can be restarted with `restart/0`.
-  """
-  def stop do
-    Money.ExchangeRates.Supervisor.stop_retriever()
-  end
-
-  @doc """
-  Restart the exchange rates retrieval service
-  """
-  def restart do
-    Money.ExchangeRates.Supervisor.restart_retriever()
-  end
-
-  @doc """
-  Delete the exchange rates retrieval service
-
-  The service can be started again with `start/1`
-  """
-  def delete do
-    Money.ExchangeRates.Supervisor.delete_retriever()
-  end
-
   @doc false
   def start_link(name, config \\ Money.ExchangeRates.config()) do
     GenServer.start_link(__MODULE__, config, name: name)
@@ -218,16 +186,6 @@ defmodule Money.ExchangeRates.Retriever do
   end
 
   @doc false
-  def handle_call(:stop, _from, config) do
-    {:stop, :normal, :ok, config}
-  end
-
-  @doc false
-  def handle_call({:stop, reason}, _from, config) do
-    {:stop, reason, :ok, config}
-  end
-
-  @doc false
   def handle_info(:latest_rates, config) do
     retrieve_latest_rates(config)
     schedule_work(config.retrieve_every)
@@ -238,16 +196,6 @@ defmodule Money.ExchangeRates.Retriever do
   def handle_info({:historic_rates, %Date{calendar: Calendar.ISO} = date}, config) do
     retrieve_historic_rates(date, config)
     {:noreply, config}
-  end
-
-  @doc false
-  def handle_info(:stop, config) do
-    {:stop, :normal, config}
-  end
-
-  @doc false
-  def handle_info({:stop, reason}, config) do
-    {:stop, reason, config}
   end
 
   @doc false
