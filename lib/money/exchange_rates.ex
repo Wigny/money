@@ -229,21 +229,15 @@ defmodule Money.ExchangeRates do
 
   * `{:error, reason}` if no exchange rates can be returned.
 
-  This function looks up the latest exchange rates in an ETS table
-  called `:exchange_rates`. The actual retrieval of rates is requested
-  through `Money.ExchangeRates.Retriever.latest_rates/0`.
+  Returns cached rates if available. If the cache is empty, requests
+  retrieval from the running `Money.ExchangeRates.Retriever`.
 
   """
   @spec latest_rates() :: {:ok, map()} | {:error, {Exception.t(), binary}}
   def latest_rates do
-    try do
-      case Retriever.config().cache_module.latest_rates() do
-        {:ok, rates} -> {:ok, rates}
-        {:error, _} -> Retriever.latest_rates()
-      end
-    catch
-      :exit, {:noproc, {GenServer, :call, [Money.ExchangeRates.Retriever, :config, _timeout]}} ->
-        {:error, no_retriever_running_error()}
+    case config().cache_module.latest_rates() do
+      {:ok, rates} -> {:ok, rates}
+      {:error, _} -> Retriever.latest_rates()
     end
   end
 
@@ -261,21 +255,16 @@ defmodule Money.ExchangeRates do
 
   **Note:** All dates are expected to be in the Calendar.ISO calendar.
 
-  This function looks up the historic exchange rates in an ETS table
-  called `:exchange_rates`. The actual retrieval of rates is requested
-  through `Money.ExchangeRates.Retriever.historic_rates/1`.
+  Returns cached rates for `date` if available. If the cache has no
+  rates for that date, requests retrieval from the running
+  `Money.ExchangeRates.Retriever`.
 
   """
   @spec historic_rates(Calendar.date()) :: {:ok, map()} | {:error, {Exception.t(), binary}}
   def historic_rates(date) do
-    try do
-      case Retriever.config().cache_module.historic_rates(date) do
-        {:ok, rates} -> {:ok, rates}
-        {:error, _} -> Retriever.historic_rates(date)
-      end
-    catch
-      :exit, {:noproc, {GenServer, :call, [Money.ExchangeRates.Retriever, :config, _timeout]}} ->
-        {:error, no_retriever_running_error()}
+    case config().cache_module.historic_rates(date) do
+      {:ok, rates} -> {:ok, rates}
+      {:error, _} -> Retriever.historic_rates(date)
     end
   end
 
@@ -285,14 +274,9 @@ defmodule Money.ExchangeRates do
   """
   @spec latest_rates_available?() :: boolean
   def latest_rates_available? do
-    try do
-      case Retriever.config().cache_module.latest_rates() do
-        {:ok, _rates} -> true
-        _ -> false
-      end
-    catch
-      :exit, {:noproc, {GenServer, :call, [Money.ExchangeRates.Retriever, :config, _timeout]}} ->
-        false
+    case config().cache_module.latest_rates() do
+      {:ok, _rates} -> true
+      _ -> false
     end
   end
 
@@ -311,15 +295,6 @@ defmodule Money.ExchangeRates do
   """
   @spec last_updated() :: {:ok, DateTime.t()} | {:error, {Exception.t(), binary}}
   def last_updated do
-    try do
-      Retriever.config().cache_module.last_updated()
-    catch
-      :exit, {:noproc, {GenServer, :call, [Money.ExchangeRates.Retriever, :config, _timeout]}} ->
-        {:error, no_retriever_running_error()}
-    end
-  end
-
-  defp no_retriever_running_error do
-    {Money.ExchangeRateError, "Exchange Rates retrieval process is not running"}
+    config().cache_module.last_updated()
   end
 end

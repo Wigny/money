@@ -114,5 +114,4 @@ defmodule Money.ExchangeRates.RetrieverTest do
                {:error, :invalid_date}
     end
   end
-
 end

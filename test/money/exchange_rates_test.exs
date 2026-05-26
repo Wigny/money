@@ -54,18 +54,7 @@ defmodule Money.ExchangeRatesTest do
 
       assert ExchangeRates.latest_rates() ==
                {:error,
-                {Money.ExchangeRateError, "Exchange Rates retrieval process is not running"}}
-    end
-
-    test "returns error when retriever stops even if cache has rates" do
-      ExchangeRates.Cache.Ets.store_latest_rates(@rates, DateTime.utc_now())
-      ExchangeRates.Supervisor.stop_retriever()
-      ExchangeRates.Supervisor.delete_retriever()
-      on_exit(fn -> ExchangeRates.Supervisor.start_retriever() end)
-
-      assert ExchangeRates.latest_rates() ==
-               {:error,
-                {Money.ExchangeRateError, "Exchange Rates retrieval process is not running"}}
+                {Money.ExchangeRateError, "Exchange rate service does not appear to be running"}}
     end
 
     test "invokes latest_rates_retrieved callback after retrieval" do
@@ -98,18 +87,7 @@ defmodule Money.ExchangeRatesTest do
 
       assert ExchangeRates.historic_rates(~D[2017-01-01]) ==
                {:error,
-                {Money.ExchangeRateError, "Exchange Rates retrieval process is not running"}}
-    end
-
-    test "returns error when retriever stops even if cache has rates" do
-      ExchangeRates.Cache.Ets.store_historic_rates(@rates, ~D[2017-01-01])
-      ExchangeRates.Supervisor.stop_retriever()
-      ExchangeRates.Supervisor.delete_retriever()
-      on_exit(fn -> ExchangeRates.Supervisor.start_retriever() end)
-
-      assert ExchangeRates.historic_rates(~D[2017-01-01]) ==
-               {:error,
-                {Money.ExchangeRateError, "Exchange Rates retrieval process is not running"}}
+                {Money.ExchangeRateError, "Exchange rate service does not appear to be running"}}
     end
 
     test "invokes historic_rates_retrieved callback after retrieval" do
@@ -168,20 +146,7 @@ defmodule Money.ExchangeRatesTest do
       on_exit(fn -> ExchangeRates.Supervisor.start_retriever() end)
 
       assert ExchangeRates.last_updated() ==
-               {:error,
-                {Money.ExchangeRateError, "Exchange Rates retrieval process is not running"}}
-    end
-
-    test "returns error when retriever stops even if timestamp is cached" do
-      retrieved_at = DateTime.utc_now(:second)
-      ExchangeRates.Cache.Ets.store_latest_rates(@rates, retrieved_at)
-      ExchangeRates.Supervisor.stop_retriever()
-      ExchangeRates.Supervisor.delete_retriever()
-      on_exit(fn -> ExchangeRates.Supervisor.start_retriever() end)
-
-      assert ExchangeRates.last_updated() ==
-               {:error,
-                {Money.ExchangeRateError, "Exchange Rates retrieval process is not running"}}
+               {:error, {Money.ExchangeRateError, "Last updated date is not known"}}
     end
   end
 
