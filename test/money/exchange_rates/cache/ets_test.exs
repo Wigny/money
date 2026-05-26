@@ -8,13 +8,6 @@ defmodule Money.ExchangeRates.Cache.EtsTest do
   @rates %{USD: Decimal.new(1), AUD: Decimal.new("1.5")}
   @date ~D[2099-01-01]
 
-  setup do
-    # Remove any :latest_rates written during this test so the shared ETS table
-    # does not contaminate other test modules that call Money.ExchangeRates.latest_rates/0
-    on_exit(fn -> :ets.delete(:exchange_rates, :latest_rates) end)
-    :ok
-  end
-
   describe "init/0" do
     test "returns the table name when the table already exists" do
       assert Ets.init() == :exchange_rates
@@ -22,12 +15,22 @@ defmodule Money.ExchangeRates.Cache.EtsTest do
   end
 
   describe "terminate/0" do
+    setup do
+      Ets.init()
+      :ok
+    end
+
     test "returns :ok" do
       assert Ets.terminate() == :ok
     end
   end
 
   describe "store_latest_rates/2 and latest_rates/0" do
+    setup do
+      Ets.init()
+      :ok
+    end
+
     test "returns stored rates" do
       retrieved_at = DateTime.utc_now()
       Ets.store_latest_rates(@rates, retrieved_at)
@@ -36,6 +39,11 @@ defmodule Money.ExchangeRates.Cache.EtsTest do
   end
 
   describe "store_historic_rates/2 and historic_rates/1" do
+    setup do
+      Ets.init()
+      :ok
+    end
+
     test "returns stored rates for a Date" do
       Ets.store_historic_rates(@rates, @date)
       assert Ets.historic_rates(@date) == {:ok, @rates}
@@ -48,6 +56,11 @@ defmodule Money.ExchangeRates.Cache.EtsTest do
   end
 
   describe "last_updated/0" do
+    setup do
+      Ets.init()
+      :ok
+    end
+
     test "returns the timestamp stored alongside the latest rates" do
       retrieved_at = DateTime.utc_now()
       Ets.store_latest_rates(@rates, retrieved_at)

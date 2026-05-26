@@ -5,6 +5,11 @@ defmodule Money.ExchangeRates.RetrieverTest do
 
   doctest Retriever
 
+  setup do
+    start_supervised!(Money.ExchangeRates.Retriever)
+    :ok
+  end
+
   describe "historic_rates/1" do
     test "returns rates for a single date" do
       assert Retriever.historic_rates(~D[2017-01-01]) ==

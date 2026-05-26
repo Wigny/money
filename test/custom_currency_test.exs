@@ -293,7 +293,6 @@ defmodule Money.CustomCurrencyTest do
     end
   end
 
-
   # ── Startup registration ──────────────────────────────────────
 
   describe "application startup registration" do

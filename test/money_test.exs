@@ -2,10 +2,14 @@ defmodule MoneyTest do
   use ExUnit.Case
   use ExUnitProperties
 
-  import ExUnit.CaptureLog
   alias Money.Financial
 
   doctest Money
+
+  setup do
+    start_supervised!(Money.ExchangeRates.Retriever)
+    :ok
+  end
 
   test "create a new money struct with a binary currency code" do
     money = Money.new(1234, "USD")
@@ -583,22 +587,6 @@ defmodule MoneyTest do
     assert_raise Money.UnknownCurrencyError, ~r/The currency .* is not known/, fn ->
       ~M[42]ABD
     end
-  end
-
-  test "that we get a deprecation message if we use :exchange_rate_service keywork option" do
-    Application.put_env(:ex_money, :exchange_rate_service, true)
-
-    assert capture_log(fn ->
-             Money.Application.maybe_log_deprecation()
-           end) =~ "Configuration option :exchange_rate_service is deprecated"
-  end
-
-  test "that we get a deprecation message if we use :delay_before_first_retrieval keywork option" do
-    Application.put_env(:ex_money, :delay_before_first_retrieval, 300)
-
-    assert capture_log(fn ->
-             Money.Application.maybe_log_deprecation()
-           end) =~ "Configuration option :delay_before_first_retrieval is deprecated"
   end
 
   test "the integer and exponent for a number with more than the required decimal places" do

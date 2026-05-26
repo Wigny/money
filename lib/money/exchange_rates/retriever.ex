@@ -1,16 +1,28 @@
 defmodule Money.ExchangeRates.Retriever do
   @moduledoc """
-  Implements a `GenServer` to retrieve exchange rates from
-  a configured retrieval module on a periodic or on demand basis.
+  A `GenServer` that retrieves exchange rates from a configured API module on a
+  periodic or on-demand basis.
 
-  By default exchange rates are retrieved from [Open Exchange Rates](http://openexchangerates.org).
+  Add it to your application's supervision tree to enable the exchange rates
+  service:
 
-  The default period of execution is 5 minutes (300_000 milliseconds). The
-  period of retrieval is configured in `config.exs` or the appropriate
-  environment configuration. For example:
+      children = [
+        MyApp.Repo,
+        Money.ExchangeRates.Retriever
+      ]
+
+  To start with a custom configuration:
+
+      children = [
+        {Money.ExchangeRates.Retriever, [config: my_config]}
+      ]
+
+  By default exchange rates are retrieved from
+  [Open Exchange Rates](http://openexchangerates.org). The retrieval interval
+  is configured via the `:exchange_rates_retrieve_every` key (milliseconds):
 
       config :ex_money,
-        retrieve_every: 300_000
+        exchange_rates_retrieve_every: 300_000
 
   """
 
@@ -18,8 +30,9 @@ defmodule Money.ExchangeRates.Retriever do
   require Logger
 
   @doc false
-  def start_link(name, config \\ Money.ExchangeRates.config()) do
-    GenServer.start_link(__MODULE__, config, name: name)
+  def start_link(opts \\ []) do
+    config = Keyword.get(opts, :config, Money.ExchangeRates.config())
+    GenServer.start_link(__MODULE__, config, name: __MODULE__)
   end
 
   @doc """
