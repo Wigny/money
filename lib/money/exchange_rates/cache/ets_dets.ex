@@ -5,8 +5,6 @@ defmodule Money.ExchangeRates.Cache.EtsDets do
     quote do
       @behaviour Money.ExchangeRates.Cache
 
-      require Logger
-
       @impl true
       def latest_rates do
         case get(:latest_rates) do
@@ -33,12 +31,8 @@ defmodule Money.ExchangeRates.Cache.EtsDets do
       @impl true
       def last_updated do
         case get(:last_updated) do
-          nil ->
-            Logger.error("Argument error getting last updated timestamp from ETS table")
-            {:error, {Money.ExchangeRateError, "Last updated date is not known"}}
-
-          last_updated ->
-            {:ok, last_updated}
+          nil -> {:error, {Money.ExchangeRateError, "Last updated date is not known"}}
+          last_updated -> {:ok, last_updated}
         end
       end
 

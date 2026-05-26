@@ -30,9 +30,11 @@ defmodule Money.ExchangeRates.Cache.Ets do
   end
 
   defp get(key) do
-    case :ets.lookup(@ets_table, key) do
-      [{^key, value}] -> value
-      [] -> nil
+    with tid when is_reference(tid) <- :ets.whereis(@ets_table),
+         [{^key, value}] <- :ets.lookup(tid, key) do
+      value
+    else
+      _other -> nil
     end
   end
 
