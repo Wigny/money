@@ -108,7 +108,30 @@ The following are systemic concerns about the overall design.
 
 - [x] **7.1** **Forced supervision startup** — The `Money.ExchangeRates.Supervisor` is always started by the application, even when `auto_start_exchange_rates_service: false`. Only the child `Retriever` is not started in that case. This forces the supervisor into `ex_money`'s supervision tree, making it awkward to integrate in umbrella apps or when the caller's supervision tree order matters (e.g., Ecto must start before the callback module). The supervisor should be opt-in and easy to start from a host application's own supervisor. **Decision: `Money.ExchangeRates.Supervisor` deleted entirely. `Retriever` updated to standard OTP `start_link/1` with opts; users add it directly to their own supervision tree. `auto_start_exchange_rate_service` config key removed.**
 
-- [ ] **7.2** **Single Retriever bottleneck** — Only one `Money.ExchangeRates.Retriever` GenServer runs per node. Under high message volume (many `latest_rates/0` calls triggering GenServer calls), this becomes a bottleneck. The architecture should support pooled retrievers or decouple cache reads from the GenServer entirely (reads go straight to ETS, GenServer only handles scheduled updates).
+- [ ] **7.2** **Named retrievers and GenServer-free reads** — Support multiple named `Retriever` instances, each with its own `api_module` and cache, started directly in the host supervision tree. Reads must not be `GenServer.call`s — they must be plain module functions so the GenServer process only handles scheduled `:tick` messages (one per retriever per interval), eliminating the bottleneck without pooling.
+
+  **Design:**
+  - `start_link/1` accepts a `name:` opt (atom); omitting it defaults to `:default`. Uniqueness is enforced — two retrievers with the same name is an error.
+  - At `init/1`, the Retriever writes `{name, cache_module, config}` into a lightweight ETS registry (`:exchange_rates_registry`). At `terminate/2` it removes the entry. This lets the read path resolve the cache module without touching the GenServer process.
+  - Cache callbacks gain a `name` argument (`get(name)`, `put(name, rates)`, `init(name)`) so implementations can namespace their storage (e.g. `Cache.Ets` creates table `{:exchange_rates_ets, name}`; a DB-backed cache scopes queries by name).
+  - `Retriever.latest_rates(name)` and `Retriever.historic_rates(name, date)` are plain module functions: registry ETS lookup → `cache_module.get(name)`. No `GenServer.call` involved.
+  - `Money.ExchangeRates.latest_rates/0,1` and `historic_rates/1,2` delegate to these functions (see **7.10**).
+
+  **Caller shape:**
+  ```elixir
+  # supervision tree
+  children = [
+    {Money.ExchangeRates.Retriever, name: :oxr,   config: [api_module: Money.ExchangeRates.OpenExchangeRates]},
+    {Money.ExchangeRates.Retriever, name: :fixer, config: [api_module: MyApp.FixerApi]},
+  ]
+
+  # reads — plain function calls, no GenServer involved
+  Money.ExchangeRates.latest_rates(:oxr)
+  Money.ExchangeRates.latest_rates(:fixer)
+  Money.ExchangeRates.latest_rates()   # uses :default
+  ```
+
+- [x] **7.10** **`ExchangeRates` delegates reads to `Retriever`** — Currently `Money.ExchangeRates.latest_rates/0` bypasses the Retriever and resolves the cache module directly from config. This spreads cache-resolution logic across two modules and prevents the named-retriever read path from working. Move all read logic into `Retriever` as plain module functions (`latest_rates/1`, `historic_rates/2`, `latest_rates_available?/1`); `Money.ExchangeRates` becomes a thin delegation layer that passes the retriever name through. Prerequisite for **7.2**.
 
 - [x] **7.3** **`retrieve_every: :never` type mismatch** — `@default_retrieval_interval` is `:never` (an atom), but `Config.t` types `retrieve_every` as `non_neg_integer | nil`. The atom `:never` is neither. The check `is_integer(config.retrieve_every)` silently accepts this (falls to no-op), but it's a documentation and typespec lie. Decide: use `nil` as "no polling" and remove `:never`, or add `:never` to the typespec and handle it explicitly.
 
@@ -155,5 +178,17 @@ A sweep of all `Money.ExchangeRates.*` modules looking for dead functions, misle
   **Breaking change**: flat top-level keys (`:exchange_rates_retrieve_every`, `:log_success`, etc.) are removed. Migration note required in the changelog.
 
   Open exchange rates keys (`:open_exchange_rates_app_id`, `:open_exchange_rates_url`, `:exchange_rates_http_client`) remain top-level `:ex_money` keys since they are read by `OpenExchangeRates.init/1`, not by `default_config/0`. They may be addressed separately.
+
+- [ ] **8.10** **Replace custom log-level config with direct Logger calls** — The current approach stores a `log_levels` map in `Config` (three keys: `:success`, `:failure`, `:info`) and routes all Retriever log calls through a `log/3` wrapper that checks the map at runtime. This is non-idiomatic: standard Elixir libraries just call Logger directly at semantically appropriate levels and let the consuming application configure Logger.
+
+  **Decision:** remove `log_levels` from `Config`, remove `Retriever.log/3`, and replace every `log(config, key, message)` call with a direct Logger call at the appropriate level:
+  - startup/lifecycle messages (currently `:info`) → `Logger.info/1`
+  - successful retrieval messages (currently gated by `:success`, default `nil`) → `Logger.debug/1`
+  - failed retrieval messages (currently gated by `:failure`, default `:warning`) → `Logger.warning/1`
+  - The two existing `Logger.error/1` calls are already correct and unchanged.
+
+  Also remove `:log_success`, `:log_failure`, and `:log_info` from the validated key list in **8.9**. Consumers who want to suppress or elevate library log output use standard Logger configuration (global level, `compile_time_purge_matching`, or a handler filter targeting `Money.ExchangeRates.*`).
+
+  **Breaking change**: the three config keys are removed. Migration note required in the changelog.
 
 - [ ] **8.8** **Cyclic dependency audit** — Map all inter-module calls within `Money.ExchangeRates.*` and identify any cycles (e.g. `ExchangeRates` → `Cache` → `Retriever` → `ExchangeRates`). Verify that each module's dependencies flow in one direction: user-facing API → Retriever → Cache/Api → Config. Flag any module that calls back into a higher-level module, any compile-time cycles (`alias`/`import`/`use` that form a loop), and any runtime cycles (GenServer calls that re-enter the same process or call a module that calls back into the caller). Fix or escalate each cycle found.
