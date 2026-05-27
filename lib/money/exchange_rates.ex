@@ -228,22 +228,67 @@ defmodule Money.ExchangeRates do
   def latest_rates, do: Retriever.latest_rates()
 
   @doc """
-  Returns historic exchange rates.
+  Returns historic exchange rates for a date or date range.
 
-  * `date` is a `Date.t` or any date-compatible map or struct (`Calendar.date/0`).
+  * `date` is a `Date.t()` or any date-compatible struct implementing
+    `Calendar.date/0`. Non-ISO calendar dates are converted automatically.
+  * `range` is a `Date.Range.t()` created with `Date.range/2`.
+
+  Reads from the cache if available. If the cache has no rates for a given
+  date, requests a retrieval from the configured API module and stores the
+  result before returning.
 
   Returns:
 
-  * `{:ok, rates}` if exchange rates are available. `rates` is a map of
-    exchange rates.
+  * `{:ok, rates}` for a single date where `rates` is a map of exchange rates.
 
-  * `{:error, reason}` if no exchange rates can be returned.
+  * `[{:ok, rates} | {:error, reason}]` for a date range, one entry per date.
 
-  **Note:** All dates are expected to be in the `Calendar.ISO` calendar.
+  * `{:error, reason}` if the retriever is not running or the API call fails.
 
   """
+  @spec historic_rates(Date.Range.t()) :: [{:ok, map()} | {:error, {Exception.t(), binary}}]
+  def historic_rates(%Date.Range{} = range) do
+    for date <- range do
+      historic_rates(date)
+    end
+  end
+
   @spec historic_rates(Calendar.date()) :: {:ok, map()} | {:error, {Exception.t(), binary}}
-  def historic_rates(date), do: Retriever.historic_rates(date)
+  def historic_rates(%Date{calendar: Calendar.ISO} = date) do
+    Retriever.historic_rates(date)
+  end
+
+  def historic_rates(date) do
+    date = Date.convert!(date, Calendar.ISO)
+    historic_rates(date)
+  end
+
+  @doc """
+  Returns historic exchange rates for the date range from `from` to `to`.
+
+  * `from` and `to` are `Date.t()` values or any date-compatible struct
+    implementing `Calendar.date/0`. Non-ISO calendar dates are converted
+    automatically.
+
+  Equivalent to `historic_rates(Date.range(from, to))`.
+
+  Returns a list of `{:ok, rates} | {:error, reason}` tuples, one per date
+  in the range.
+
+  """
+  @spec historic_rates(Calendar.date(), Calendar.date()) ::
+          [{:ok, map()} | {:error, {Exception.t(), binary}}]
+  def historic_rates(%Date{calendar: Calendar.ISO} = from, %Date{calendar: Calendar.ISO} = to) do
+    range = Date.range(from, to)
+    historic_rates(range)
+  end
+
+  def historic_rates(from, to) do
+    from = Date.convert!(from, Calendar.ISO)
+    to = Date.convert!(to, Calendar.ISO)
+    historic_rates(from, to)
+  end
 
   @doc """
   Returns `true` if the latest exchange rates are available in the cache,

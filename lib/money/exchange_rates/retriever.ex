@@ -35,19 +35,6 @@ defmodule Money.ExchangeRates.Retriever do
     GenServer.start_link(__MODULE__, config, name: __MODULE__)
   end
 
-  @doc """
-  Returns the latest exchange rates.
-
-  Reads from the cache if available. If the cache is empty, requests a fresh
-  retrieval from the configured API module and stores the result before returning.
-
-  Returns:
-
-  * `{:ok, rates}` if exchange rates are available.
-
-  * `{:error, reason}` if the retriever is not running or the api call fails.
-
-  """
   @spec latest_rates() :: {:ok, map()} | {:error, {Exception.t(), binary}}
   def latest_rates() do
     case Process.whereis(__MODULE__) do
@@ -57,10 +44,9 @@ defmodule Money.ExchangeRates.Retriever do
   end
 
   @doc """
-  Returns the historic exchange rates for a date or date range.
+  Returns the historic exchange rates for a date.
 
-  * `date` is a `Date.t` or any date-compatible map or struct (`Calendar.date/0`), or
-    a `Date.Range.t` created by `Date.range/2`.
+  * `date` is a `Date.t()` with `Calendar.ISO` calendar.
 
   Reads from the cache if available. If the cache has no rates for the given date,
   requests a retrieval from the configured API module and stores the result before
@@ -68,72 +54,16 @@ defmodule Money.ExchangeRates.Retriever do
 
   Returns:
 
-  * `{:ok, rates}` for a single date if exchange rates are available.
+  * `{:ok, rates}` where `rates` is a map of exchange rates if available.
 
-  * A list of `{:ok, rates} | {:error, reason}` tuples for a date range.
-
-  * `{:error, reason}` if the retriever is not running or the api call fails.
+  * `{:error, reason}` if the retriever is not running or the API call fails.
 
   """
-  @spec historic_rates(Calendar.date()) ::
-          {:ok, map()} | {:error, {Exception.t(), binary} | :invalid_date}
+  @spec historic_rates(Date.t()) :: {:ok, map()} | {:error, {Exception.t(), binary}}
   def historic_rates(%Date{calendar: Calendar.ISO} = date) do
     case Process.whereis(__MODULE__) do
       nil -> {:error, exchange_rate_service_error()}
       _pid -> GenServer.call(__MODULE__, {:historic_rates, date})
-    end
-  end
-
-  def historic_rates(%{year: year, month: month, day: day}) do
-    case Date.new(year, month, day) do
-      {:ok, date} -> historic_rates(date)
-      error -> error
-    end
-  end
-
-  @spec historic_rates(Date.Range.t()) ::
-          [{:ok, map()} | {:error, {Exception.t(), binary}}] | {:error, {Exception.t(), binary}}
-  def historic_rates(%Date.Range{first: from, last: to}) do
-    historic_rates(from, to)
-  end
-
-  @doc """
-  Fetches and caches historic exchange rates for each date in `from`..`to`.
-
-  * `from` is a `Date.t` or any date-compatible map or struct (`Calendar.date/0`).
-
-  * `to` is a `Date.t` or any date-compatible map or struct (`Calendar.date/0`).
-
-  For each date in the range, reads from the cache if rates are already stored,
-  otherwise requests retrieval from the configured API module and stores the result.
-
-  Returns:
-
-  * A list of `{:ok, rates} | {:error, reason}` tuples, one per date in
-    the range `from`..`to`.
-
-  * `{:error, reason}` if the retriever is not running.
-
-  """
-  @spec historic_rates(Calendar.date(), Calendar.date()) ::
-          [{:ok, map()} | {:error, {Exception.t(), binary}}]
-          | {:error, {Exception.t(), binary} | :invalid_date}
-  def historic_rates(%Date{calendar: Calendar.ISO} = from, %Date{calendar: Calendar.ISO} = to) do
-    case Process.whereis(__MODULE__) do
-      nil ->
-        {:error, exchange_rate_service_error()}
-
-      _pid ->
-        for date <- Date.range(from, to) do
-          historic_rates(date)
-        end
-    end
-  end
-
-  def historic_rates(%{year: y1, month: m1, day: d1}, %{year: y2, month: m2, day: d2}) do
-    with {:ok, from} <- Date.new(y1, m1, d1),
-         {:ok, to} <- Date.new(y2, m2, d2) do
-      historic_rates(from, to)
     end
   end
 
