@@ -115,7 +115,10 @@ The following are systemic concerns about the overall design.
   - At `init/1`, the Retriever writes `{name, cache_module, config}` into a lightweight ETS registry (`:exchange_rates_registry`). At `terminate/2` it removes the entry. This lets the read path resolve the cache module without touching the GenServer process.
   - Cache callbacks gain a `name` argument (`get(name)`, `put(name, rates)`, `init(name)`) so implementations can namespace their storage (e.g. `Cache.Ets` creates table `{:exchange_rates_ets, name}`; a DB-backed cache scopes queries by name).
   - `Retriever.latest_rates(name)` and `Retriever.historic_rates(name, date)` are plain module functions: registry ETS lookup → `cache_module.get(name)`. No `GenServer.call` involved.
-  - `Money.ExchangeRates.latest_rates/0,1` and `historic_rates/1,2` delegate to these functions (see **7.10**).
+  - `Money.ExchangeRates` exposes no-arg functions only, always reading from `:default`. The `Money` module internals (e.g. `Money.convert/3`) call `Money.ExchangeRates.latest_rates/0` unchanged — threading a retriever argument through the `Money` API would be a disproportionate breaking change.
+  - Multi-retriever users call `Money.ExchangeRates.Retriever` directly: `Retriever.latest_rates(:fixer)`. This is a deliberate step away from the high-level API.
+
+  **Application config** — still supported for the `:default` retriever; `start_link/1` falls back to `default_config()` when no `config:` opt is given. Named non-default retrievers must pass `config:` explicitly in the child spec. The `config:` opt is a **full replacement** of `default_config()`, not a merge — a named retriever owns its entire config.
 
   **Caller shape:**
   ```elixir
@@ -125,11 +128,16 @@ The following are systemic concerns about the overall design.
     {Money.ExchangeRates.Retriever, name: :fixer, config: [api_module: MyApp.FixerApi]},
   ]
 
-  # reads — plain function calls, no GenServer involved
-  Money.ExchangeRates.latest_rates(:oxr)
-  Money.ExchangeRates.latest_rates(:fixer)
-  Money.ExchangeRates.latest_rates()   # uses :default
+  # high-level API — always reads from :default, no name arg
+  Money.ExchangeRates.latest_rates()
+  Money.ExchangeRates.historic_rates(date)
+
+  # power-user API — named retriever, called directly on Retriever
+  Money.ExchangeRates.Retriever.latest_rates(:fixer)
+  Money.ExchangeRates.Retriever.historic_rates(:fixer, date)
   ```
+
+  **Scope note:** this item may be split — the GenServer-free read path (ETS registry) can land independently of named-retriever support.
 
 - [x] **7.10** **`ExchangeRates` delegates reads to `Retriever`** — Currently `Money.ExchangeRates.latest_rates/0` bypasses the Retriever and resolves the cache module directly from config. This spreads cache-resolution logic across two modules and prevents the named-retriever read path from working. Move all read logic into `Retriever` as plain module functions (`latest_rates/1`, `historic_rates/2`, `latest_rates_available?/1`); `Money.ExchangeRates` becomes a thin delegation layer that passes the retriever name through. Prerequisite for **7.2**.
 
