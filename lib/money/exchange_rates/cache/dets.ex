@@ -1,16 +1,15 @@
 defmodule Money.ExchangeRates.Cache.Dets do
   @moduledoc """
-  Money.ExchangeRates.Cache implementation for
-  :dets
+  `Money.ExchangeRates.Cache` implementation backed by `:dets`.
+
+  Rates are stored in a `:dets` file (`<tmp_dir>/.exchange_rates`) and survive
+  process restarts. The table is opened on `init/0` and flushed to disk on
+  `terminate/0`.
   """
 
-  @behaviour Money.ExchangeRates.Cache
+  use Money.ExchangeRates.Cache.EtsDets
 
   @ets_table :exchange_rates
-
-  require Logger
-  require Money.ExchangeRates.Cache.EtsDets
-  Money.ExchangeRates.Cache.EtsDets.define_common_functions()
 
   @impl true
   def init do
@@ -24,14 +23,14 @@ defmodule Money.ExchangeRates.Cache.Dets do
     :dets.close(@ets_table)
   end
 
-  def get(key) do
+  defp get(key) do
     case :dets.lookup(@ets_table, key) do
       [{^key, value}] -> value
       [] -> nil
     end
   end
 
-  def put(key, value) do
+  defp put(key, value) do
     :dets.insert(@ets_table, {key, value})
     value
   end
