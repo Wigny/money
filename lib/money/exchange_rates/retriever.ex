@@ -36,22 +36,19 @@ defmodule Money.ExchangeRates.Retriever do
   end
 
   @doc """
-  Forces retrieval of the latest exchange rates
+  Returns the latest exchange rates.
 
-  Sends a message to the exchange rate retrieval worker to request
-  current rates be retrieved and stored.
+  Reads from the cache if available. If the cache is empty, requests a fresh
+  retrieval from the configured API module and stores the result before returning.
 
   Returns:
 
-  * `{:ok, rates}` if exchange rates request is successfully sent.
+  * `{:ok, rates}` if exchange rates are available.
 
-  * `{:error, reason}` if the request cannot be sent.
-
-  This function does not return exchange rates, for that see
-  `Money.ExchangeRates.latest_rates/0` or
-  `Money.ExchangeRates.historic_rates/1`.
+  * `{:error, reason}` if the retriever is not running or the api call fails.
 
   """
+  @spec latest_rates() :: {:ok, map()} | {:error, {Exception.t(), binary}}
   def latest_rates() do
     case Process.whereis(__MODULE__) do
       nil -> {:error, exchange_rate_service_error()}
@@ -60,28 +57,26 @@ defmodule Money.ExchangeRates.Retriever do
   end
 
   @doc """
-  Forces retrieval of historic exchange rates for a single date
+  Returns the historic exchange rates for a date or date range.
 
-  * `date` is a `Date.t` or any date-compatible map or struct (`Calendar.date/0`) or
+  * `date` is a `Date.t` or any date-compatible map or struct (`Calendar.date/0`), or
+    a `Date.Range.t` created by `Date.range/2`.
 
-  * a `Date.Range.t` created by `Date.range/2` that specifies a
-    range of dates to retrieve
+  Reads from the cache if available. If the cache has no rates for the given date,
+  requests a retrieval from the configured API module and stores the result before
+  returning.
 
   Returns:
 
-  * `{:ok, rates}` if exchange rates request is successfully sent.
+  * `{:ok, rates}` for a single date if exchange rates are available.
 
-  * `{:error, reason}` if the request cannot be sent.
+  * A list of `{:ok, rates} | {:error, reason}` tuples for a date range.
 
-  Sends a message to the exchange rate retrieval worker to request
-  historic rates for a specified date or range be retrieved and
-  stored.
-
-  This function does not return exchange rates, for that see
-  `Money.ExchangeRates.latest_rates/0` or
-  `Money.ExchangeRates.historic_rates/1`.
+  * `{:error, reason}` if the retriever is not running or the api call fails.
 
   """
+  @spec historic_rates(Calendar.date()) ::
+          {:ok, map()} | {:error, {Exception.t(), binary} | :invalid_date}
   def historic_rates(%Date{calendar: Calendar.ISO} = date) do
     case Process.whereis(__MODULE__) do
       nil -> {:error, exchange_rate_service_error()}
@@ -96,28 +91,33 @@ defmodule Money.ExchangeRates.Retriever do
     end
   end
 
+  @spec historic_rates(Date.Range.t()) ::
+          [{:ok, map()} | {:error, {Exception.t(), binary}}] | {:error, {Exception.t(), binary}}
   def historic_rates(%Date.Range{first: from, last: to}) do
     historic_rates(from, to)
   end
 
   @doc """
-  Forces retrieval of historic exchange rates for a range of dates
+  Fetches and caches historic exchange rates for each date in `from`..`to`.
 
   * `from` is a `Date.t` or any date-compatible map or struct (`Calendar.date/0`).
 
   * `to` is a `Date.t` or any date-compatible map or struct (`Calendar.date/0`).
 
+  For each date in the range, reads from the cache if rates are already stored,
+  otherwise requests retrieval from the configured API module and stores the result.
+
   Returns:
 
-  * `{:ok, rates}` if exchange rates request is successfully sent.
+  * A list of `{:ok, rates} | {:error, reason}` tuples, one per date in
+    the range `from`..`to`.
 
-  * `{:error, reason}` if the request cannot be sent.
-
-  Sends a message to the exchange rate retrieval process for each
-  date in the range `from`..`to` to request historic rates be
-  retrieved.
+  * `{:error, reason}` if the retriever is not running.
 
   """
+  @spec historic_rates(Calendar.date(), Calendar.date()) ::
+          [{:ok, map()} | {:error, {Exception.t(), binary}}]
+          | {:error, {Exception.t(), binary} | :invalid_date}
   def historic_rates(%Date{calendar: Calendar.ISO} = from, %Date{calendar: Calendar.ISO} = to) do
     case Process.whereis(__MODULE__) do
       nil ->
@@ -134,6 +134,40 @@ defmodule Money.ExchangeRates.Retriever do
     with {:ok, from} <- Date.new(y1, m1, d1),
          {:ok, to} <- Date.new(y2, m2, d2) do
       historic_rates(from, to)
+    end
+  end
+
+  @doc """
+  Returns `true` if the latest exchange rates are available in the cache,
+  `false` otherwise.
+
+  Returns `false` when the retriever is not running, even if the cache table
+  still exists.
+  """
+  @spec latest_rates_available?() :: boolean
+  def latest_rates_available? do
+    case Process.whereis(__MODULE__) do
+      nil -> false
+      _pid -> GenServer.call(__MODULE__, :latest_rates_available?)
+    end
+  end
+
+  @doc """
+  Returns the timestamp of the last successful exchange rate retrieval.
+
+  Returns:
+
+  * `{:ok, datetime}` if rates have been retrieved at least once.
+
+  * `{:error, reason}` if the retriever is not running or no retrieval has
+    occurred yet.
+
+  """
+  @spec last_updated() :: {:ok, DateTime.t()} | {:error, {Exception.t(), binary}}
+  def last_updated do
+    case Process.whereis(__MODULE__) do
+      nil -> {:error, exchange_rate_service_error()}
+      _pid -> GenServer.call(__MODULE__, :last_updated)
     end
   end
 
@@ -157,12 +191,12 @@ defmodule Money.ExchangeRates.Retriever do
 
     if is_integer(config.retrieve_every) do
       log(config, :info, log_init_message(config.retrieve_every))
-      schedule_work(0)
+      schedule_retrieve_latest_rates(0)
     end
 
     if config.preload_historic_rates do
       log(config, :info, "Preloading historic rates for #{inspect(config.preload_historic_rates)}")
-      schedule_work(config.preload_historic_rates, config.cache_module)
+      preload_historic_rates(config.preload_historic_rates)
     end
 
     {:ok, config}
@@ -194,6 +228,16 @@ defmodule Money.ExchangeRates.Retriever do
   end
 
   @doc false
+  def handle_call(:latest_rates_available?, _from, config) do
+    {:reply, match?({:ok, _rates}, config.cache_module.latest_rates()), config}
+  end
+
+  @doc false
+  def handle_call(:last_updated, _from, config) do
+    {:reply, config.cache_module.last_updated(), config}
+  end
+
+  @doc false
   def handle_call(:config, _from, config) do
     {:reply, config, config}
   end
@@ -201,7 +245,7 @@ defmodule Money.ExchangeRates.Retriever do
   @doc false
   def handle_info(:latest_rates, config) do
     retrieve_latest_rates(config)
-    schedule_work(config.retrieve_every)
+    schedule_retrieve_latest_rates(config.retrieve_every)
     {:noreply, config}
   end
 
@@ -218,6 +262,13 @@ defmodule Money.ExchangeRates.Retriever do
   end
 
   defp retrieve_latest_rates(config) do
+    case config.cache_module.latest_rates() do
+      {:ok, rates} -> {:ok, rates}
+      {:error, _reason} -> fetch_latest_rates(config)
+    end
+  end
+
+  defp fetch_latest_rates(config) do
     case config.api_module.get_latest_rates(config) do
       {:ok, :not_modified} ->
         log(config, :success, "Retrieved latest exchange rates successfully. Rates unchanged.")
@@ -240,6 +291,13 @@ defmodule Money.ExchangeRates.Retriever do
   end
 
   defp retrieve_historic_rates(date, config) do
+    case config.cache_module.historic_rates(date) do
+      {:ok, rates} -> {:ok, rates}
+      {:error, _reason} -> fetch_historic_rates(date, config)
+    end
+  end
+
+  defp fetch_historic_rates(date, config) do
     case config.api_module.get_historic_rates(date, config) do
       {:ok, :not_modified} ->
         log(config, :success, "Historic exchange rates for #{Date.to_string(date)} are unchanged")
@@ -269,14 +327,8 @@ defmodule Money.ExchangeRates.Retriever do
     end
   end
 
-  defp schedule_work(delay_ms) when is_integer(delay_ms) do
+  defp schedule_retrieve_latest_rates(delay_ms) when is_integer(delay_ms) do
     Process.send_after(self(), :latest_rates, delay_ms)
-  end
-
-  defp schedule_work(%Date.Range{} = date_range, cache_module) do
-    for date <- date_range do
-      schedule_work(date, cache_module)
-    end
   end
 
   # Don't retrieve historic rates if they are
@@ -291,33 +343,18 @@ defmodule Money.ExchangeRates.Retriever do
   # external API calls and it means the cache
   # will survive restarts both intentional and
   # unintentional
-  defp schedule_work(%Date{calendar: Calendar.ISO} = date, cache_module) do
-    case cache_module.historic_rates(date) do
-      {:ok, _rates} ->
-        :ok
-
-      {:error, _} ->
-        Process.send(self(), {:historic_rates, date}, [])
+  defp preload_historic_rates(%Date.Range{} = range) do
+    for date <- range do
+      preload_historic_rates(date)
     end
   end
 
-  defp schedule_work({%Date{} = from, %Date{} = to}, cache_module) do
-    schedule_work(Date.range(from, to), cache_module)
+  defp preload_historic_rates(%Date{calendar: Calendar.ISO} = date) do
+    Process.send(self(), {:historic_rates, date}, [])
   end
 
-  defp schedule_work(date_string, cache_module) when is_binary(date_string) do
-    parts = String.split(date_string, "..")
-
-    case parts do
-      [date] -> schedule_work(Date.from_iso8601(date), cache_module)
-      [from, to] -> schedule_work({Date.from_iso8601(from), Date.from_iso8601(to)}, cache_module)
-    end
-  end
-
-  # Any non-numeric value, or non-date value means
-  # we don't schedule work - ie there is no periodic
-  # retrieval
-  defp schedule_work(_, _cache_module) do
+  # nil value means we don't schedule work - ie there is no periodic retrieval
+  defp preload_historic_rates(nil) do
     :ok
   end
 

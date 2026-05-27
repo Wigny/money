@@ -91,10 +91,10 @@ defmodule Money.ExchangeRates do
   ## Managing the configuration at runtime
 
   During exchange rate service startup, the function `init/1` is called
-  on the configuration exchange rate retrieval module. This module is
-  expected to return an updated configuration allowing a developer to
-  customise how the configuration is to be managed. See the implementation
-  at `Money.ExchangeRates.OpenExchangeRates.init/1` for an example.
+  on the configured API module. This module is expected to return an updated
+  configuration allowing a developer to customise how the configuration is to
+  be managed. See the implementation at `Money.ExchangeRates.OpenExchangeRates.init/1`
+  for an example.
 
   """
   alias Localize.Currency
@@ -154,9 +154,8 @@ defmodule Money.ExchangeRates do
   @default_cache_module Money.ExchangeRates.Cache.Ets
 
   @doc """
-  Returns the configuration for `ex_money` including the
-  configuration merged from the configured exchange rates
-  retriever module.
+  Returns the configuration for `ex_money` including any runtime
+  overrides applied by the configured API module's `init/1` callback.
 
   """
   def config do
@@ -200,7 +199,8 @@ defmodule Money.ExchangeRates do
     %Config{
       api_module: Money.get_env(:api_module, @default_api_module, :module),
       callback_module: Money.get_env(:callback_module, @default_callback_module, :module),
-      preload_historic_rates: Money.get_env(:preload_historic_rates, nil),
+      preload_historic_rates:
+        with({from, to} <- Money.get_env(:preload_historic_rates, nil), do: Date.range(from, to)),
       cache_module: Money.get_env(:exchange_rates_cache_module, @default_cache_module, :module),
       retrieve_every:
         Money.get_env(:exchange_rates_retrieve_every, @default_retrieval_interval, :maybe_integer),
@@ -218,22 +218,14 @@ defmodule Money.ExchangeRates do
 
   Returns:
 
-  * `{:ok, rates}` if exchange rates are successfully retrieved. `rates` is a map of
+  * `{:ok, rates}` if exchange rates are available. `rates` is a map of
     exchange rates.
 
   * `{:error, reason}` if no exchange rates can be returned.
 
-  Returns cached rates if available. If the cache is empty, requests
-  retrieval from the running `Money.ExchangeRates.Retriever`.
-
   """
   @spec latest_rates() :: {:ok, map()} | {:error, {Exception.t(), binary}}
-  def latest_rates do
-    case config().cache_module.latest_rates() do
-      {:ok, rates} -> {:ok, rates}
-      {:error, _} -> Retriever.latest_rates()
-    end
-  end
+  def latest_rates, do: Retriever.latest_rates()
 
   @doc """
   Returns historic exchange rates.
@@ -242,53 +234,38 @@ defmodule Money.ExchangeRates do
 
   Returns:
 
-  * `{:ok, rates}` if exchange rates are successfully retrieved. `rates` is a map of
+  * `{:ok, rates}` if exchange rates are available. `rates` is a map of
     exchange rates.
 
   * `{:error, reason}` if no exchange rates can be returned.
 
-  **Note:** All dates are expected to be in the Calendar.ISO calendar.
-
-  Returns cached rates for `date` if available. If the cache has no
-  rates for that date, requests retrieval from the running
-  `Money.ExchangeRates.Retriever`.
+  **Note:** All dates are expected to be in the `Calendar.ISO` calendar.
 
   """
   @spec historic_rates(Calendar.date()) :: {:ok, map()} | {:error, {Exception.t(), binary}}
-  def historic_rates(date) do
-    case config().cache_module.historic_rates(date) do
-      {:ok, rates} -> {:ok, rates}
-      {:error, _} -> Retriever.historic_rates(date)
-    end
-  end
+  def historic_rates(date), do: Retriever.historic_rates(date)
 
   @doc """
-  Returns `true` if the latest exchange rates are available
-  and `false` otherwise.
+  Returns `true` if the latest exchange rates are available in the cache,
+  `false` otherwise.
+
+  Returns `false` when the retriever is not running, even if the cache table
+  still exists.
   """
   @spec latest_rates_available?() :: boolean
-  def latest_rates_available? do
-    case config().cache_module.latest_rates() do
-      {:ok, _rates} -> true
-      _ -> false
-    end
-  end
+  def latest_rates_available?, do: Retriever.latest_rates_available?()
 
   @doc """
-  Returns the timestamp of the last successful retrieval of exchange rates or
-  `{:error, reason}` if no timestamp is known.
+  Returns the timestamp of the last successful retrieval of exchange rates.
 
-  ## Example
+  Returns:
 
-      Money.ExchangeRates.last_updated
-      #> {:ok,
-       %DateTime{calendar: Calendar.ISO, day: 20, hour: 12, microsecond: {731942, 6},
-        minute: 36, month: 11, second: 6, std_offset: 0, time_zone: "Etc/UTC",
-        utc_offset: 0, year: 2016, zone_abbr: "UTC"}}
+  * `{:ok, datetime}` if rates have been retrieved at least once.
+
+  * `{:error, reason}` if the retriever is not running or no retrieval has
+    occurred yet.
 
   """
   @spec last_updated() :: {:ok, DateTime.t()} | {:error, {Exception.t(), binary}}
-  def last_updated do
-    config().cache_module.last_updated()
-  end
+  def last_updated, do: Retriever.last_updated()
 end
