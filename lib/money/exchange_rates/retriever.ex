@@ -202,7 +202,7 @@ defmodule Money.ExchangeRates.Retriever do
     case config.api_module.get_latest_rates(config) do
       {:ok, :not_modified} ->
         log(config, :success, "Retrieved latest exchange rates successfully. Rates unchanged.")
-        {:ok, config.cache_module.latest_rates()}
+        config.cache_module.latest_rates()
 
       {:ok, rates} ->
         retrieved_at = DateTime.utc_now()
@@ -231,7 +231,7 @@ defmodule Money.ExchangeRates.Retriever do
     case config.api_module.get_historic_rates(date, config) do
       {:ok, :not_modified} ->
         log(config, :success, "Historic exchange rates for #{Date.to_string(date)} are unchanged")
-        {:ok, config.cache_module.historic_rates(date)}
+        config.cache_module.historic_rates(date)
 
       {:ok, rates} ->
         config.cache_module.store_historic_rates(rates, date)

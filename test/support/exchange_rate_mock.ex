@@ -16,11 +16,19 @@ defmodule Money.ExchangeRatesMock do
   end
 
   @impl true
+  def get_latest_rates(%{retriever_options: %{skip_fetch: true}}) do
+    {:ok, :not_modified}
+  end
+
   def get_latest_rates(_config) do
     get_rates(@latest_url)
   end
 
   @impl true
+  def get_historic_rates(_date, %{retriever_options: %{skip_fetch: true}}) do
+    {:ok, :not_modified}
+  end
+
   def get_historic_rates(~D[2017-01-01], _config) do
     {:ok, %{AUD: Decimal.new("0.5"), EUR: Decimal.new("1.1"), USD: Decimal.new("0.7")}}
   end

@@ -19,8 +19,7 @@ defmodule Money.ExchangeRates.RetrieverTest do
       | callback_module: Money.ExchangeRatesCallbackMock
     }
 
-    start_supervised!({Money.ExchangeRates.Retriever, [config: config]})
-    :ok
+    %{retriever: start_supervised!({Money.ExchangeRates.Retriever, [config: config]})}
   end
 
   describe "latest_rates/0" do
@@ -43,13 +42,26 @@ defmodule Money.ExchangeRates.RetrieverTest do
                 {Money.ExchangeRateError, "Exchange rate service does not appear to be running"}}
     end
 
-    test "invokes latest_rates_retrieved callback after retrieval" do
-      pid = Process.whereis(Money.ExchangeRates.Retriever)
-      trace_module(pid, Money.ExchangeRatesCallbackMock)
+    test "returns an error when api reports not_modified and cache is empty" do
+      stop_supervised!(Money.ExchangeRates.Retriever)
+
+      config = %{
+        Money.ExchangeRates.default_config()
+        | retriever_options: %{skip_fetch: true}
+      }
+
+      start_supervised!({Money.ExchangeRates.Retriever, [config: config]})
+
+      assert Retriever.latest_rates() ==
+               {:error, {Money.ExchangeRateError, "No exchange rates were found"}}
+    end
+
+    test "invokes latest_rates_retrieved callback after retrieval", %{retriever: retriever} do
+      trace_module(retriever, Money.ExchangeRatesCallbackMock)
 
       Retriever.latest_rates()
 
-      assert_received {:trace, ^pid, :call,
+      assert_received {:trace, ^retriever, :call,
                        {Money.ExchangeRatesCallbackMock, :latest_rates_retrieved,
                         [_rates, _retrieved_at]}}
     end
@@ -74,13 +86,26 @@ defmodule Money.ExchangeRates.RetrieverTest do
                 {Money.ExchangeRateError, "Exchange rate service does not appear to be running"}}
     end
 
-    test "invokes historic_rates_retrieved callback after retrieval" do
-      pid = Process.whereis(Money.ExchangeRates.Retriever)
-      trace_module(pid, Money.ExchangeRatesCallbackMock)
+    test "returns an error when api reports not_modified and cache is empty" do
+      stop_supervised!(Money.ExchangeRates.Retriever)
+
+      config = %{
+        Money.ExchangeRates.default_config()
+        | retriever_options: %{skip_fetch: true}
+      }
+
+      start_supervised!({Money.ExchangeRates.Retriever, [config: config]})
+
+      assert Retriever.historic_rates(~D[2017-01-01]) ==
+               {:error, {Money.ExchangeRateError, "No exchange rates for 2017-01-01 were found"}}
+    end
+
+    test "invokes historic_rates_retrieved callback after retrieval", %{retriever: retriever} do
+      trace_module(retriever, Money.ExchangeRatesCallbackMock)
 
       Retriever.historic_rates(~D[2017-01-01])
 
-      assert_received {:trace, ^pid, :call,
+      assert_received {:trace, ^retriever, :call,
                        {Money.ExchangeRatesCallbackMock, :historic_rates_retrieved, [_rates, _date]}}
     end
   end
