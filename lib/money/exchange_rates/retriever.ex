@@ -36,7 +36,7 @@ defmodule Money.ExchangeRates.Retriever do
   end
 
   @spec latest_rates() :: {:ok, map()} | {:error, {Exception.t(), binary}}
-  def latest_rates() do
+  def latest_rates do
     case Process.whereis(__MODULE__) do
       nil -> {:error, exchange_rate_service_error()}
       _pid -> GenServer.call(__MODULE__, :latest_rates)
@@ -114,7 +114,7 @@ defmodule Money.ExchangeRates.Retriever do
   # Server implementation
   #
 
-  @doc false
+  @impl true
   def init(config) do
     :erlang.process_flag(:trap_exit, true)
     config.cache_module.init()
@@ -132,62 +132,50 @@ defmodule Money.ExchangeRates.Retriever do
     {:ok, config}
   end
 
-  @doc false
-  def terminate(:normal, config) do
+  @impl true
+  def terminate(reason, config) when reason in [:normal, :shutdown] do
     config.cache_module.terminate()
   end
 
-  @doc false
-  def terminate(:shutdown, config) do
-    config.cache_module.terminate()
+  def terminate(reason, _config) do
+    Logger.error("[ExchangeRates.Retriever] Unexpected terminate: #{inspect(reason)}")
   end
 
-  @doc false
-  def terminate(other, _config) do
-    Logger.error("[ExchangeRates.Retriever] Terminate called with unhandled #{inspect(other)}")
-  end
-
-  @doc false
+  @impl true
   def handle_call(:latest_rates, _from, config) do
     {:reply, retrieve_latest_rates(config), config}
   end
 
-  @doc false
   def handle_call({:historic_rates, date}, _from, config) do
     {:reply, retrieve_historic_rates(date, config), config}
   end
 
-  @doc false
   def handle_call(:latest_rates_available?, _from, config) do
     {:reply, match?({:ok, _rates}, config.cache_module.latest_rates()), config}
   end
 
-  @doc false
   def handle_call(:last_updated, _from, config) do
     {:reply, config.cache_module.last_updated(), config}
   end
 
-  @doc false
   def handle_call(:config, _from, config) do
     {:reply, config, config}
   end
 
-  @doc false
+  @impl true
   def handle_info(:latest_rates, config) do
     retrieve_latest_rates(config)
     schedule_retrieve_latest_rates(config.retrieve_every)
     {:noreply, config}
   end
 
-  @doc false
   def handle_info({:historic_rates, %Date{calendar: Calendar.ISO} = date}, config) do
     retrieve_historic_rates(date, config)
     {:noreply, config}
   end
 
-  @doc false
   def handle_info(message, config) do
-    Logger.error("Invalid message for ExchangeRates.Retriever: #{inspect(message)}")
+    Logger.error("[ExchangeRates.Retriever] Unexpected message: #{inspect(message)}")
     {:noreply, config}
   end
 
@@ -201,7 +189,7 @@ defmodule Money.ExchangeRates.Retriever do
   defp fetch_latest_rates(config) do
     case config.api_module.get_latest_rates(config) do
       {:ok, :not_modified} ->
-        log(config, :success, "Retrieved latest exchange rates successfully. Rates unchanged.")
+        log(config, :success, "Latest exchange rates unchanged")
         config.cache_module.latest_rates()
 
       {:ok, rates} ->
@@ -230,7 +218,7 @@ defmodule Money.ExchangeRates.Retriever do
   defp fetch_historic_rates(date, config) do
     case config.api_module.get_historic_rates(date, config) do
       {:ok, :not_modified} ->
-        log(config, :success, "Historic exchange rates for #{Date.to_string(date)} are unchanged")
+        log(config, :success, "Historic exchange rates for #{Date.to_string(date)} unchanged")
         config.cache_module.historic_rates(date)
 
       {:ok, rates} ->
@@ -249,15 +237,14 @@ defmodule Money.ExchangeRates.Retriever do
         log(
           config,
           :failure,
-          "Could not retrieve historic exchange rates " <>
-            "for #{Date.to_string(date)}: #{inspect(reason)}"
+          "Could not retrieve historic exchange rates for #{Date.to_string(date)}: #{inspect(reason)}"
         )
 
         {:error, reason}
     end
   end
 
-  defp schedule_retrieve_latest_rates(delay_ms) when is_integer(delay_ms) do
+  defp schedule_retrieve_latest_rates(delay_ms) do
     Process.send_after(self(), :latest_rates, delay_ms)
   end
 
@@ -283,35 +270,18 @@ defmodule Money.ExchangeRates.Retriever do
     Process.send(self(), {:historic_rates, date}, [])
   end
 
-  # nil value means we don't schedule work - ie there is no periodic retrieval
-  defp preload_historic_rates(nil) do
-    :ok
-  end
-
-  @doc false
-  def log(%{log_levels: log_levels}, key, message) do
+  defp log(%{log_levels: log_levels}, key, message) do
     case Map.get(log_levels, key) do
-      nil ->
-        nil
-
-      log_level ->
-        Logger.log(log_level, message)
+      nil -> :ok
+      level -> Logger.log(level, message)
     end
   end
 
   defp log_init_message(every) do
-    {every, plural_every} = seconds(every)
-    "Exchange Rates will be retrieved now and then every #{every} #{plural_every}."
-  end
-
-  defp seconds(milliseconds) do
-    seconds = div(milliseconds, 1000)
-    plural = if seconds == 1, do: "second", else: "seconds"
-
-    {:ok, formatted_seconds} =
-      Localize.Number.to_string(seconds)
-
-    {formatted_seconds, plural}
+    seconds = div(every, 1000)
+    unit = if seconds == 1, do: "second", else: "seconds"
+    {:ok, formatted} = Localize.Number.to_string(seconds)
+    "Exchange Rates will be retrieved now and then every #{formatted} #{unit}."
   end
 
   defp exchange_rate_service_error do
