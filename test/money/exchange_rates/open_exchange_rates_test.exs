@@ -6,21 +6,12 @@ defmodule Money.ExchangeRates.OpenExchangeRatesTest do
   @etag_cache :open_exchange_rates_etag_cache
 
   defmodule HttpMock do
-    @etag ~c"test-etag-123"
-    @date ~c"Mon, 01 Jan 2024 00:00:00 GMT"
-    @response_headers [{~c"etag", @etag}, {~c"date", @date}]
-    @rates_body ~c({"base":"USD","rates":{"USD":1.0,"EUR":0.9,"AUD":1.5}})
-
-    def get_with_headers({"http://error.example.com" <> _, _headers}, _opts) do
-      {:error, :nxdomain}
+    def get_with_headers({"https://openexchangerates.org/api" <> _path, _headers}, _opts) do
+      {:ok, [], ~s({"base":"USD","rates":{"USD":1.0,"EUR":0.9,"AUD":1.5}})}
     end
 
-    def get_with_headers({_url, headers}, _opts) do
-      if :proplists.get_value(~c"If-None-Match", headers) == :undefined do
-        {:ok, @response_headers, @rates_body}
-      else
-        {:not_modified, @response_headers}
-      end
+    def get_with_headers({_url, _headers}, _opts) do
+      {:error, :nxdomain}
     end
   end
 
@@ -91,19 +82,6 @@ defmodule Money.ExchangeRates.OpenExchangeRatesTest do
 
       assert {:error, {Money.ExchangeRateError, ":nxdomain"}} =
                OpenExchangeRates.get_latest_rates(config)
-    end
-
-    test "stores the ETag in the cache after a successful request", %{config: config} do
-      url = "https://openexchangerates.org/api/latest.json?app_id=test_app_id"
-      OpenExchangeRates.get_latest_rates(config)
-
-      assert [{^url, {~c"test-etag-123", _date}}] = :ets.lookup(@etag_cache, url)
-    end
-
-    test "returns :not_modified on a second request with a cached ETag", %{config: config} do
-      {:ok, _rates} = OpenExchangeRates.get_latest_rates(config)
-
-      assert {:ok, :not_modified} = OpenExchangeRates.get_latest_rates(config)
     end
   end
 

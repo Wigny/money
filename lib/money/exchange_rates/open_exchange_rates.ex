@@ -28,7 +28,6 @@ defmodule Money.ExchangeRates.OpenExchangeRates do
   @behaviour Money.ExchangeRates
 
   @open_exchange_rate_url "https://openexchangerates.org/api"
-  @etag_cache :open_exchange_rates_etag_cache
 
   @doc """
   Update the retriever configuration to include the requirements
@@ -46,10 +45,6 @@ defmodule Money.ExchangeRates.OpenExchangeRates do
   def init(default_config) do
     url = Money.get_env(:open_exchange_rates_url, @open_exchange_rate_url)
     app_id = Money.get_env(:open_exchange_rates_app_id, nil)
-
-    if :ets.info(@etag_cache) == :undefined do
-      :ets.new(@etag_cache, [:named_table, :public])
-    end
 
     Map.put(default_config, :retriever_options, %{url: url, app_id: app_id})
   end
@@ -131,56 +126,10 @@ defmodule Money.ExchangeRates.OpenExchangeRates do
   end
 
   defp request(url, config) do
-    headers = if_none_match_header(url)
-    http_client = Money.get_env(:exchange_rates_http_client, Localize.Utils.Http, :module)
-
-    {url, headers}
-    |> http_client.get_with_headers(verify_peer: config.verify_peer)
-    |> process_response(url)
-  end
-
-  defp process_response({:ok, headers, body}, url) do
-    cache_etag(headers, url)
-    {:ok, decode_rates(body)}
-  end
-
-  defp process_response({:not_modified, headers}, url) do
-    cache_etag(headers, url)
-    {:ok, :not_modified}
-  end
-
-  defp process_response({:error, reason}, _url) do
-    {:error, {Money.ExchangeRateError, "#{inspect(reason)}"}}
-  end
-
-  defp if_none_match_header(url) do
-    case get_etag(url) do
-      {etag, date} ->
-        [
-          {~c"If-None-Match", etag},
-          {~c"If-Modified-Since", date}
-        ]
-
-      _ ->
-        []
-    end
-  end
-
-  defp cache_etag(headers, url) do
-    etag = :proplists.get_value(~c"etag", headers)
-    date = :proplists.get_value(~c"date", headers)
-
-    if etag != :undefined and date != :undefined do
-      :ets.insert(@etag_cache, {url, {etag, date}})
-    else
-      :ets.delete(@etag_cache, url)
-    end
-  end
-
-  defp get_etag(url) do
-    case :ets.lookup(@etag_cache, url) do
-      [{^url, cached_value}] -> cached_value
-      [] -> nil
+    case Money.ExchangeRates.HTTP.get(url, verify_peer: config.verify_peer) do
+      {:ok, :not_modified} -> {:ok, :not_modified}
+      {:ok, response} -> {:ok, decode_rates(response)}
+      {:error, reason} -> {:error, reason}
     end
   end
 
