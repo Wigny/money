@@ -17,6 +17,17 @@ defmodule Money.ExchangeRates.Retriever do
         {Money.ExchangeRates.Retriever, [config: my_config]}
       ]
 
+  Multiple named retrievers can be started independently, each backed by a
+  different API source:
+
+      children = [
+        {Money.ExchangeRates.Retriever, [name: :open_exchange_rates, config: oxr_config]},
+        {Money.ExchangeRates.Retriever, [name: :fixer, config: fixer_config]}
+      ]
+
+      Money.ExchangeRates.Retriever.latest_rates(:open_exchange_rates)
+      Money.ExchangeRates.Retriever.historic_rates(:fixer, ~D[2024-01-01])
+
   By default exchange rates are retrieved from
   [Open Exchange Rates](http://openexchangerates.org). The retrieval interval
   is configured via the `:exchange_rates_retrieve_every` key (milliseconds):
@@ -32,14 +43,15 @@ defmodule Money.ExchangeRates.Retriever do
   @doc false
   def start_link(opts \\ []) do
     config = Keyword.get(opts, :config, Money.ExchangeRates.config())
-    GenServer.start_link(__MODULE__, config, name: __MODULE__)
+    name = Keyword.get(opts, :name, __MODULE__)
+    GenServer.start_link(__MODULE__, config, name: name)
   end
 
-  @spec latest_rates() :: {:ok, map()} | {:error, {Exception.t(), binary}}
-  def latest_rates do
-    case Process.whereis(__MODULE__) do
+  @spec latest_rates(GenServer.server()) :: {:ok, map()} | {:error, {Exception.t(), binary}}
+  def latest_rates(name \\ __MODULE__) do
+    case Process.whereis(name) do
       nil -> {:error, exchange_rate_service_error()}
-      _pid -> GenServer.call(__MODULE__, :latest_rates)
+      pid -> GenServer.call(pid, :latest_rates)
     end
   end
 
@@ -59,11 +71,11 @@ defmodule Money.ExchangeRates.Retriever do
   * `{:error, reason}` if the retriever is not running or the API call fails.
 
   """
-  @spec historic_rates(Date.t()) :: {:ok, map()} | {:error, {Exception.t(), binary}}
-  def historic_rates(%Date{calendar: Calendar.ISO} = date) do
-    case Process.whereis(__MODULE__) do
+  @spec historic_rates(GenServer.server(), Date.t()) :: {:ok, map()} | {:error, {Exception.t(), binary}}
+  def historic_rates(name \\ __MODULE__, %Date{calendar: Calendar.ISO} = date) do
+    case Process.whereis(name) do
       nil -> {:error, exchange_rate_service_error()}
-      _pid -> GenServer.call(__MODULE__, {:historic_rates, date})
+      pid -> GenServer.call(pid, {:historic_rates, date})
     end
   end
 
@@ -74,11 +86,11 @@ defmodule Money.ExchangeRates.Retriever do
   Returns `false` when the retriever is not running, even if the cache table
   still exists.
   """
-  @spec latest_rates_available?() :: boolean
-  def latest_rates_available? do
-    case Process.whereis(__MODULE__) do
+  @spec latest_rates_available?(GenServer.server()) :: boolean
+  def latest_rates_available?(name \\ __MODULE__) do
+    case Process.whereis(name) do
       nil -> false
-      _pid -> GenServer.call(__MODULE__, :latest_rates_available?)
+      pid -> GenServer.call(pid, :latest_rates_available?)
     end
   end
 
@@ -93,11 +105,11 @@ defmodule Money.ExchangeRates.Retriever do
     occurred yet.
 
   """
-  @spec last_updated() :: {:ok, DateTime.t()} | {:error, {Exception.t(), binary}}
-  def last_updated do
-    case Process.whereis(__MODULE__) do
+  @spec last_updated(GenServer.server()) :: {:ok, DateTime.t()} | {:error, {Exception.t(), binary}}
+  def last_updated(name \\ __MODULE__) do
+    case Process.whereis(name) do
       nil -> {:error, exchange_rate_service_error()}
-      _pid -> GenServer.call(__MODULE__, :last_updated)
+      pid -> GenServer.call(pid, :last_updated)
     end
   end
 
@@ -106,8 +118,8 @@ defmodule Money.ExchangeRates.Retriever do
   Retrieval service
 
   """
-  def config do
-    GenServer.call(__MODULE__, :config)
+  def config(name \\ __MODULE__) do
+    GenServer.call(name, :config)
   end
 
   #
