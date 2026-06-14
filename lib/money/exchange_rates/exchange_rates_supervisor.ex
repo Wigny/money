@@ -18,7 +18,7 @@ defmodule Money.ExchangeRates.Supervisor do
   ## Options
 
   * `:restart` is a boolean value indicating
-    if the supervisor is to be restarted.  This is
+    if the supervisor is to be restarted. This is
     typically used to move the supervisor from its
     default position under the `ex_money` supervision
     tree to a different supervision tree.  The default
@@ -53,7 +53,7 @@ defmodule Money.ExchangeRates.Supervisor do
   Stop the Money.ExchangeRates.Supervisor.
 
   Unless `ex_money` is configured in `mix.exs` as
-  `rumtime: false`, the Money.ExchangeRates.Supervisor
+  `runtime: false`, the Money.ExchangeRates.Supervisor
   is always started when `ex_money` starts even if the
   config key `:auto_start_exchange_rates_service` is
   set to `false`.
@@ -67,11 +67,11 @@ defmodule Money.ExchangeRates.Supervisor do
 
   One use case is when the Exchange Rates service is
   configured with either an API module, a Callback module
-  or a Cache module which uses Ecto and therefore its
+  or a Cache module which uses Ecto and therefore it's
   a requirement that Ecto is started first.
 
   See the README section on "Using Ecto or other applications
-  from within the callback module" for an eanple of how
+  from within the callback module" for an example of how
   to configure the supervisor in this case.
   """
   def stop(supervisor \\ default_supervisor()) do
@@ -97,7 +97,7 @@ defmodule Money.ExchangeRates.Supervisor do
   end
 
   @doc """
-  Returns a boolean indicating of the
+  Returns a boolean indicating whether the
   retriever process is configured and
   running
   """
@@ -168,7 +168,7 @@ defmodule Money.ExchangeRates.Supervisor do
   end
 
   @doc """
-  Deleted the retriever child specification from
+  Deletes the retriever child specification from
   the exchange rates supervisor.
 
   This is primarily of use if you want to change
