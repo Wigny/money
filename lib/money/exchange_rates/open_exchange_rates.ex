@@ -43,6 +43,7 @@ defmodule Money.ExchangeRates.OpenExchangeRates do
   additional configuration specific to this exchange
   rates retrieval module.
   """
+  @impl true
   def init(default_config) do
     url = Money.get_env(:open_exchange_rates_url, @open_exchange_rate_url)
     app_id = Money.get_env(:open_exchange_rates_app_id, nil)
@@ -58,6 +59,7 @@ defmodule Money.ExchangeRates.OpenExchangeRates do
 
   * A map of currency code atoms to `Decimal` exchange rate values.
   """
+  @impl true
   def decode_rates(body) when is_list(body) do
     body
     |> List.to_string()
@@ -94,7 +96,7 @@ defmodule Money.ExchangeRates.OpenExchangeRates do
   required.
 
   """
-  @spec get_latest_rates(Money.ExchangeRates.Config.t()) :: {:ok, map()} | {:error, String.t()}
+  @impl true
   def get_latest_rates(config) do
     url = config.retriever_options.url
     app_id = config.retriever_options.app_id
@@ -130,6 +132,7 @@ defmodule Money.ExchangeRates.OpenExchangeRates do
   service although it can be called outside that context as
   required.
   """
+  @impl true
   def get_historic_rates(date, config) do
     url = config.retriever_options.url
     app_id = config.retriever_options.app_id

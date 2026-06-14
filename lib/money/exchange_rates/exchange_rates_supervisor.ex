@@ -93,6 +93,7 @@ defmodule Money.ExchangeRates.Supervisor do
   end
 
   @doc false
+  @impl true
   def init(:ok) do
     Supervisor.init([], strategy: :one_for_one)
   end
