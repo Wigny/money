@@ -49,6 +49,35 @@ defmodule Money.ExchangeRatesTest do
   end
 
   describe "historic_rates/2" do
+    test "routes to the correct retriever for a single date" do
+      config = %{
+        Money.ExchangeRates.default_config()
+        | callback_module: Money.ExchangeRatesCallbackMock
+      }
+
+      start_supervised!({Money.ExchangeRates.Retriever, [name: :custom_retriever, config: config]},
+        id: :custom_retriever
+      )
+
+      assert {:ok, _rates} = ExchangeRates.historic_rates(:custom_retriever, ~D[2017-01-01])
+    end
+
+    test "routes to the correct retriever for a date range" do
+      config = %{
+        Money.ExchangeRates.default_config()
+        | callback_module: Money.ExchangeRatesCallbackMock
+      }
+
+      start_supervised!({Money.ExchangeRates.Retriever, [name: :custom_retriever, config: config]},
+        id: :custom_retriever
+      )
+
+      range = Date.range(~D[2017-01-01], ~D[2017-01-02])
+
+      assert [{:ok, _rates1}, {:ok, _rates2}] =
+               ExchangeRates.historic_rates(:custom_retriever, range)
+    end
+
     test "returns a list of results for each date in the range" do
       assert ExchangeRates.historic_rates(~D[2017-01-01], ~D[2017-01-02]) ==
                [
@@ -84,6 +113,22 @@ defmodule Money.ExchangeRatesTest do
         {:error, {Money.ExchangeRateError, "Exchange rate service does not appear to be running"}}
 
       assert ExchangeRates.historic_rates(~D[2017-01-01], ~D[2017-01-02]) == [error, error]
+    end
+  end
+
+  describe "historic_rates/3" do
+    test "routes to the correct retriever" do
+      config = %{
+        Money.ExchangeRates.default_config()
+        | callback_module: Money.ExchangeRatesCallbackMock
+      }
+
+      start_supervised!({Money.ExchangeRates.Retriever, [name: :custom_retriever, config: config]},
+        id: :custom_retriever
+      )
+
+      assert [{:ok, _rates1}, {:ok, _rates2}] =
+               ExchangeRates.historic_rates(:custom_retriever, ~D[2017-01-01], ~D[2017-01-02])
     end
   end
 end

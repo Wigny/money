@@ -216,6 +216,9 @@ defmodule Money.ExchangeRates do
   @doc """
   Returns the latest exchange rates.
 
+  * `retriever` is an optional `GenServer.server()` identifying the named
+    retriever instance to query. Defaults to the default retriever.
+
   Returns:
 
   * `{:ok, rates}` if exchange rates are available. `rates` is a map of
@@ -224,12 +227,16 @@ defmodule Money.ExchangeRates do
   * `{:error, reason}` if no exchange rates can be returned.
 
   """
-  @spec latest_rates() :: {:ok, map()} | {:error, {Exception.t(), binary}}
-  def latest_rates, do: Retriever.latest_rates()
+  @spec latest_rates(GenServer.server()) :: {:ok, map()} | {:error, {Exception.t(), binary}}
+  def latest_rates(retriever \\ Retriever), do: Retriever.latest_rates(retriever)
+
+  defguardp is_server(name_or_pid) when is_atom(name_or_pid) or is_pid(name_or_pid)
 
   @doc """
   Returns historic exchange rates for a date or date range.
 
+  * `retriever` is an optional `GenServer.server()` identifying the named
+    retriever instance to query. Defaults to the default retriever.
   * `date` is a `Date.t()` or any date-compatible struct implementing
     `Calendar.date/0`. Non-ISO calendar dates are converted automatically.
   * `range` is a `Date.Range.t()` created with `Date.range/2`.
@@ -247,26 +254,37 @@ defmodule Money.ExchangeRates do
   * `{:error, reason}` if the retriever is not running or the API call fails.
 
   """
+  @spec historic_rates(Calendar.date()) :: {:ok, map()} | {:error, {Exception.t(), binary}}
   @spec historic_rates(Date.Range.t()) :: [{:ok, map()} | {:error, {Exception.t(), binary}}]
-  def historic_rates(%Date.Range{} = range) do
+  def historic_rates(range_or_date) when is_struct(range_or_date) do
+    historic_rates(Retriever, range_or_date)
+  end
+
+  @spec historic_rates(GenServer.server(), Date.Range.t()) :: [
+          {:ok, map()} | {:error, {Exception.t(), binary}}
+        ]
+  def historic_rates(retriever, %Date.Range{} = range) when is_server(retriever) do
     for date <- range do
-      historic_rates(date)
+      historic_rates(retriever, date)
     end
   end
 
-  @spec historic_rates(Calendar.date()) :: {:ok, map()} | {:error, {Exception.t(), binary}}
-  def historic_rates(%Date{calendar: Calendar.ISO} = date) do
-    Retriever.historic_rates(date)
+  @spec historic_rates(GenServer.server(), Calendar.date()) ::
+          {:ok, map()} | {:error, {Exception.t(), binary}}
+  def historic_rates(retriever, %Date{calendar: Calendar.ISO} = date) when is_server(retriever) do
+    Retriever.historic_rates(retriever, date)
   end
 
-  def historic_rates(date) do
+  def historic_rates(retriever, date) when is_server(retriever) and is_struct(date) do
     date = Date.convert!(date, Calendar.ISO)
-    historic_rates(date)
+    historic_rates(retriever, date)
   end
 
   @doc """
   Returns historic exchange rates for the date range from `from` to `to`.
 
+  * `retriever` is an optional `GenServer.server()` identifying the named
+    retriever instance to query. Defaults to the default retriever.
   * `from` and `to` are `Date.t()` values or any date-compatible struct
     implementing `Calendar.date/0`. Non-ISO calendar dates are converted
     automatically.
@@ -277,31 +295,50 @@ defmodule Money.ExchangeRates do
   in the range.
 
   """
-  @spec historic_rates(Calendar.date(), Calendar.date()) ::
-          [{:ok, map()} | {:error, {Exception.t(), binary}}]
-  def historic_rates(%Date{calendar: Calendar.ISO} = from, %Date{calendar: Calendar.ISO} = to) do
-    range = Date.range(from, to)
-    historic_rates(range)
+  @spec historic_rates(Calendar.date(), Calendar.date()) :: [
+          {:ok, map()} | {:error, {Exception.t(), binary}}
+        ]
+  def historic_rates(from, to) when is_struct(from) and is_struct(to) do
+    historic_rates(Retriever, from, to)
   end
 
-  def historic_rates(from, to) do
+  @spec historic_rates(GenServer.server(), Calendar.date(), Calendar.date()) ::
+          [{:ok, map()} | {:error, {Exception.t(), binary}}]
+  def historic_rates(
+        retriever,
+        %Date{calendar: Calendar.ISO} = from,
+        %Date{calendar: Calendar.ISO} = to
+      )
+      when is_server(retriever) do
+    range = Date.range(from, to)
+    historic_rates(retriever, range)
+  end
+
+  def historic_rates(retriever, from, to) when is_server(retriever) do
     from = Date.convert!(from, Calendar.ISO)
     to = Date.convert!(to, Calendar.ISO)
-    historic_rates(from, to)
+    historic_rates(retriever, from, to)
   end
 
   @doc """
   Returns `true` if the latest exchange rates are available in the cache,
   `false` otherwise.
 
+  * `retriever` is an optional `GenServer.server()` identifying the named
+    retriever instance to query. Defaults to the default retriever.
+
   Returns `false` when the retriever is not running, even if the cache table
   still exists.
   """
-  @spec latest_rates_available?() :: boolean
-  def latest_rates_available?, do: Retriever.latest_rates_available?()
+  @spec latest_rates_available?(GenServer.server()) :: boolean
+  def latest_rates_available?(retriever \\ Retriever),
+    do: Retriever.latest_rates_available?(retriever)
 
   @doc """
   Returns the timestamp of the last successful retrieval of exchange rates.
+
+  * `retriever` is an optional `GenServer.server()` identifying the named
+    retriever instance to query. Defaults to the default retriever.
 
   Returns:
 
@@ -311,6 +348,6 @@ defmodule Money.ExchangeRates do
     occurred yet.
 
   """
-  @spec last_updated() :: {:ok, DateTime.t()} | {:error, {Exception.t(), binary}}
-  def last_updated, do: Retriever.last_updated()
+  @spec last_updated(GenServer.server()) :: {:ok, DateTime.t()} | {:error, {Exception.t(), binary}}
+  def last_updated(retriever \\ Retriever), do: Retriever.last_updated(retriever)
 end

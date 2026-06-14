@@ -22,7 +22,7 @@ defmodule Money.ExchangeRates.RetrieverTest do
     %{retriever: start_supervised!({Money.ExchangeRates.Retriever, [config: config]})}
   end
 
-  describe "latest_rates/0" do
+  describe "latest_rates/1" do
     test "returns rates from the cache when available" do
       Money.ExchangeRates.Cache.Ets.store_latest_rates(@rates, DateTime.utc_now())
 
@@ -56,6 +56,19 @@ defmodule Money.ExchangeRates.RetrieverTest do
                {:error, {Money.ExchangeRateError, "No exchange rates were found"}}
     end
 
+    test "routes to the correct process when called with a custom name" do
+      config = %{
+        Money.ExchangeRates.default_config()
+        | callback_module: Money.ExchangeRatesCallbackMock
+      }
+
+      start_supervised!({Retriever, [name: :custom_retriever, config: config]},
+        id: :custom_retriever
+      )
+
+      assert {:ok, _rates} = Retriever.latest_rates(:custom_retriever)
+    end
+
     test "invokes latest_rates_retrieved callback after retrieval", %{retriever: retriever} do
       trace_module(retriever, Money.ExchangeRatesCallbackMock)
 
@@ -67,7 +80,7 @@ defmodule Money.ExchangeRates.RetrieverTest do
     end
   end
 
-  describe "historic_rates/1" do
+  describe "historic_rates/2" do
     test "returns rates from the cache when available" do
       Money.ExchangeRates.Cache.Ets.store_historic_rates(@rates, ~D[2017-01-01])
 
@@ -100,6 +113,19 @@ defmodule Money.ExchangeRates.RetrieverTest do
                {:error, {Money.ExchangeRateError, "No exchange rates for 2017-01-01 were found"}}
     end
 
+    test "routes to the correct process when called with a custom name" do
+      config = %{
+        Money.ExchangeRates.default_config()
+        | callback_module: Money.ExchangeRatesCallbackMock
+      }
+
+      start_supervised!({Retriever, [name: :custom_retriever, config: config]},
+        id: :custom_retriever
+      )
+
+      assert {:ok, _rates} = Retriever.historic_rates(:custom_retriever, ~D[2017-01-01])
+    end
+
     test "invokes historic_rates_retrieved callback after retrieval", %{retriever: retriever} do
       trace_module(retriever, Money.ExchangeRatesCallbackMock)
 
@@ -110,7 +136,22 @@ defmodule Money.ExchangeRates.RetrieverTest do
     end
   end
 
-  describe "latest_rates_available?/0" do
+  describe "latest_rates_available?/1" do
+    test "routes to the correct process when called with a custom name" do
+      config = %{
+        Money.ExchangeRates.default_config()
+        | callback_module: Money.ExchangeRatesCallbackMock
+      }
+
+      start_supervised!({Retriever, [name: :custom_retriever, config: config]},
+        id: :custom_retriever
+      )
+
+      Retriever.latest_rates(:custom_retriever)
+
+      assert Retriever.latest_rates_available?(:custom_retriever)
+    end
+
     test "returns true when rates are in the cache" do
       Money.ExchangeRates.Cache.Ets.store_latest_rates(@rates, DateTime.utc_now())
 
@@ -137,7 +178,22 @@ defmodule Money.ExchangeRates.RetrieverTest do
     end
   end
 
-  describe "last_updated/0" do
+  describe "last_updated/1" do
+    test "routes to the correct process when called with a custom name" do
+      config = %{
+        Money.ExchangeRates.default_config()
+        | callback_module: Money.ExchangeRatesCallbackMock
+      }
+
+      start_supervised!({Retriever, [name: :custom_retriever, config: config]},
+        id: :custom_retriever
+      )
+
+      Retriever.latest_rates(:custom_retriever)
+
+      assert {:ok, _datetime} = Retriever.last_updated(:custom_retriever)
+    end
+
     test "returns the time when rates have been stored" do
       retrieved_at = DateTime.utc_now(:second)
       Money.ExchangeRates.Cache.Ets.store_latest_rates(@rates, retrieved_at)

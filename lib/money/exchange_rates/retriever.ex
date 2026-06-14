@@ -71,7 +71,8 @@ defmodule Money.ExchangeRates.Retriever do
   * `{:error, reason}` if the retriever is not running or the API call fails.
 
   """
-  @spec historic_rates(GenServer.server(), Date.t()) :: {:ok, map()} | {:error, {Exception.t(), binary}}
+  @spec historic_rates(GenServer.server(), Date.t()) ::
+          {:ok, map()} | {:error, {Exception.t(), binary}}
   def historic_rates(name \\ __MODULE__, %Date{calendar: Calendar.ISO} = date) do
     case Process.whereis(name) do
       nil -> {:error, exchange_rate_service_error()}
