@@ -108,36 +108,7 @@ The following are systemic concerns about the overall design.
 
 - [x] **7.1** **Forced supervision startup** — The `Money.ExchangeRates.Supervisor` is always started by the application, even when `auto_start_exchange_rates_service: false`. Only the child `Retriever` is not started in that case. This forces the supervisor into `ex_money`'s supervision tree, making it awkward to integrate in umbrella apps or when the caller's supervision tree order matters (e.g., Ecto must start before the callback module). The supervisor should be opt-in and easy to start from a host application's own supervisor. **Decision: `Money.ExchangeRates.Supervisor` deleted entirely. `Retriever` updated to standard OTP `start_link/1` with opts; users add it directly to their own supervision tree. `auto_start_exchange_rate_service` config key removed.**
 
-- [ ] **7.2** **Named retrievers and GenServer-free reads** — Support multiple named `Retriever` instances, each with its own `api_module` and cache, started directly in the host supervision tree. Reads must not be `GenServer.call`s — they must be plain module functions so the GenServer process only handles scheduled `:tick` messages (one per retriever per interval), eliminating the bottleneck without pooling.
-
-  **Design:**
-  - `start_link/1` accepts a `name:` opt (atom); omitting it defaults to `:default`. Uniqueness is enforced — two retrievers with the same name is an error.
-  - At `init/1`, the Retriever writes `{name, cache_module, config}` into a lightweight ETS registry (`:exchange_rates_registry`). At `terminate/2` it removes the entry. This lets the read path resolve the cache module without touching the GenServer process.
-  - Cache callbacks gain a `name` argument (`get(name)`, `put(name, rates)`, `init(name)`) so implementations can namespace their storage (e.g. `Cache.Ets` creates table `{:exchange_rates_ets, name}`; a DB-backed cache scopes queries by name).
-  - `Retriever.latest_rates(name)` and `Retriever.historic_rates(name, date)` are plain module functions: registry ETS lookup → `cache_module.get(name)`. No `GenServer.call` involved.
-  - `Money.ExchangeRates` exposes no-arg functions only, always reading from `:default`. The `Money` module internals (e.g. `Money.convert/3`) call `Money.ExchangeRates.latest_rates/0` unchanged — threading a retriever argument through the `Money` API would be a disproportionate breaking change.
-  - Multi-retriever users call `Money.ExchangeRates.Retriever` directly: `Retriever.latest_rates(:fixer)`. This is a deliberate step away from the high-level API.
-
-  **Application config** — still supported for the `:default` retriever; `start_link/1` falls back to `default_config()` when no `config:` opt is given. Named non-default retrievers must pass `config:` explicitly in the child spec. The `config:` opt is a **full replacement** of `default_config()`, not a merge — a named retriever owns its entire config.
-
-  **Caller shape:**
-  ```elixir
-  # supervision tree
-  children = [
-    {Money.ExchangeRates.Retriever, name: :oxr,   config: [api_module: Money.ExchangeRates.OpenExchangeRates]},
-    {Money.ExchangeRates.Retriever, name: :fixer, config: [api_module: MyApp.FixerApi]},
-  ]
-
-  # high-level API — always reads from :default, no name arg
-  Money.ExchangeRates.latest_rates()
-  Money.ExchangeRates.historic_rates(date)
-
-  # power-user API — named retriever, called directly on Retriever
-  Money.ExchangeRates.Retriever.latest_rates(:fixer)
-  Money.ExchangeRates.Retriever.historic_rates(:fixer, date)
-  ```
-
-  **Scope note:** this item may be split — the GenServer-free read path (ETS registry) can land independently of named-retriever support.
+- [x] **7.2** **Named retrievers and GenServer-free reads** — Support multiple named `Retriever` instances, each with its own `api_module` and cache, started directly in the host supervision tree.
 
 - [x] **7.10** **`ExchangeRates` delegates reads to `Retriever`** — Currently `Money.ExchangeRates.latest_rates/0` bypasses the Retriever and resolves the cache module directly from config. This spreads cache-resolution logic across two modules and prevents the named-retriever read path from working. Move all read logic into `Retriever` as plain module functions (`latest_rates/1`, `historic_rates/2`, `latest_rates_available?/1`); `Money.ExchangeRates` becomes a thin delegation layer that passes the retriever name through. Prerequisite for **7.2**.
 
