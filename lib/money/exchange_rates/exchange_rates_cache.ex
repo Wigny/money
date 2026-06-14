@@ -29,6 +29,11 @@ defmodule Money.ExchangeRates.Cache do
   @callback historic_rates(Date.t()) :: {:ok, map()} | {:error, {Exception.t(), String.t()}}
 
   @doc """
+  Return the timestamp when the exchange rates were last updated.
+  """
+  @callback last_updated() :: {:ok, DateTime.t()} | {:error, {Exception.t(), String.t()}}
+
+  @doc """
   Store the latest exchange rates in the cache.
   """
   @callback store_latest_rates(map(), DateTime.t()) :: :ok
