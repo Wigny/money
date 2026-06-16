@@ -7,15 +7,9 @@ defmodule Money.ExchangeRates.RetrieverTest do
 
   setup do
     Application.put_env(:ex_money, :exchange_rates_http_client, Money.ExchangeRatesHttpMock)
+    start_supervised!(Retriever)
 
-    on_exit(fn ->
-      Application.delete_env(:ex_money, :exchange_rates_http_client)
-      # :etag_cache outlives the test process; clean up so later tests get a fresh response
-      case :ets.whereis(:etag_cache) do
-        :undefined -> :ok
-        tid -> :ets.delete(tid, "http://success.example.com")
-      end
-    end)
+    on_exit(fn -> Application.delete_env(:ex_money, :exchange_rates_http_client) end)
 
     {:ok, config: Money.ExchangeRates.default_config()}
   end
@@ -49,8 +43,7 @@ defmodule Money.ExchangeRates.RetrieverTest do
     end
 
     test "returns an error when the service is not running" do
-      on_exit(fn -> Money.ExchangeRates.Supervisor.restart_retriever() end)
-      Money.ExchangeRates.Supervisor.stop_retriever()
+      stop_supervised(Retriever)
 
       assert Retriever.historic_rates(~D[2017-01-01]) ==
                {:error,
@@ -69,8 +62,7 @@ defmodule Money.ExchangeRates.RetrieverTest do
     end
 
     test "returns an error when the service is not running for a range" do
-      on_exit(fn -> Money.ExchangeRates.Supervisor.restart_retriever() end)
-      Money.ExchangeRates.Supervisor.stop_retriever()
+      stop_supervised(Retriever)
 
       range = Date.range(~D[2017-01-01], ~D[2017-01-02])
 
@@ -128,8 +120,7 @@ defmodule Money.ExchangeRates.RetrieverTest do
     end
 
     test "returns an error when the service is not running" do
-      on_exit(fn -> Money.ExchangeRates.Supervisor.restart_retriever() end)
-      Money.ExchangeRates.Supervisor.stop_retriever()
+      stop_supervised(Retriever)
 
       assert Retriever.historic_rates(~D[2017-01-01], ~D[2017-01-02]) ==
                {:error,
@@ -149,9 +140,7 @@ defmodule Money.ExchangeRates.RetrieverTest do
 
   describe "reconfigure/1" do
     setup do
-      original = Retriever.config()
-      on_exit(fn -> Retriever.reconfigure(original) end)
-      {:ok, config: original}
+      {:ok, config: Retriever.config()}
     end
 
     test "config/0 reflects the updated field after reconfigure", %{config: config} do

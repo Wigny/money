@@ -10,7 +10,6 @@ defmodule Money.ExchangeRates do
   The default configuration is:
 
       config :ex_money,
-        auto_start_exchange_rate_service: false,
         exchange_rates_retrieve_every: 300_000,
         api_module: Money.ExchangeRates.OpenExchangeRates,
         callback_module: Money.ExchangeRates.Callback,
@@ -20,10 +19,6 @@ defmodule Money.ExchangeRates do
         log_success: nil
 
   These keys are defined as follows:
-
-  * `:auto_start_exchange_rate_service` is a boolean that determines whether to
-    automatically start the exchange rate retrieval service.
-    The default is false.
 
   * `:exchange_rates_retrieve_every` defines how often the exchange
     rates are retrieved in milliseconds. The default is 5 minutes
@@ -72,7 +67,6 @@ defmodule Money.ExchangeRates do
   An example configuration might be:
 
       config :ex_money,
-        auto_start_exchange_rate_service: {:system, "RATE_SERVICE"},
         exchange_rates_retrieve_every: {:system, "RETRIEVE_EVERY"},
 
   ## Open Exchange Rates
