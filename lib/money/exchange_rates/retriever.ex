@@ -282,12 +282,12 @@ defmodule Money.ExchangeRates.Retriever do
 
     if is_integer(config.retrieve_every) do
       log(config, :info, log_init_message(config.retrieve_every))
-      schedule_work(0)
+      schedule_latest_rates_fetch(0)
     end
 
     if config.preload_historic_rates do
       log(config, :info, "Preloading historic rates for #{inspect(config.preload_historic_rates)}")
-      schedule_work(config.preload_historic_rates, config.cache_module)
+      schedule_historic_rates_preload(config.preload_historic_rates, config.cache_module)
     end
 
     {:ok, config}
@@ -349,9 +349,9 @@ defmodule Money.ExchangeRates.Retriever do
   end
 
   @doc false
-  def handle_info(:latest_rates, config) do
+  def handle_info(:scheduled_latest_rates_fetch, config) do
     fetch_latest_rates(config)
-    schedule_work(config.retrieve_every)
+    schedule_latest_rates_fetch(config.retrieve_every)
     {:noreply, config}
   end
 
@@ -440,13 +440,13 @@ defmodule Money.ExchangeRates.Retriever do
     end
   end
 
-  defp schedule_work(delay_ms) when is_integer(delay_ms) do
-    Process.send_after(self(), :latest_rates, delay_ms)
+  defp schedule_latest_rates_fetch(delay_ms) when is_integer(delay_ms) do
+    Process.send_after(self(), :scheduled_latest_rates_fetch, delay_ms)
   end
 
-  defp schedule_work(%Date.Range{} = date_range, cache_module) do
+  defp schedule_historic_rates_preload(%Date.Range{} = date_range, cache_module) do
     for date <- date_range do
-      schedule_work(date, cache_module)
+      schedule_historic_rates_preload(date, cache_module)
     end
   end
 
@@ -462,7 +462,7 @@ defmodule Money.ExchangeRates.Retriever do
   # external API calls and it means the cache
   # will survive restarts both intentional and
   # unintentional
-  defp schedule_work(%Date{calendar: Calendar.ISO} = date, cache_module) do
+  defp schedule_historic_rates_preload(%Date{calendar: Calendar.ISO} = date, cache_module) do
     case cache_module.historic_rates(date) do
       {:ok, _rates} ->
         :ok
@@ -472,23 +472,29 @@ defmodule Money.ExchangeRates.Retriever do
     end
   end
 
-  defp schedule_work({%Date{} = from, %Date{} = to}, cache_module) do
-    schedule_work(Date.range(from, to), cache_module)
+  defp schedule_historic_rates_preload({%Date{} = from, %Date{} = to}, cache_module) do
+    schedule_historic_rates_preload(Date.range(from, to), cache_module)
   end
 
-  defp schedule_work(date_string, cache_module) when is_binary(date_string) do
+  defp schedule_historic_rates_preload(date_string, cache_module) when is_binary(date_string) do
     parts = String.split(date_string, "..")
 
     case parts do
-      [date] -> schedule_work(Date.from_iso8601(date), cache_module)
-      [from, to] -> schedule_work({Date.from_iso8601(from), Date.from_iso8601(to)}, cache_module)
+      [date] ->
+        schedule_historic_rates_preload(Date.from_iso8601(date), cache_module)
+
+      [from, to] ->
+        schedule_historic_rates_preload(
+          {Date.from_iso8601(from), Date.from_iso8601(to)},
+          cache_module
+        )
     end
   end
 
   # Any non-numeric value, or non-date value means
   # we don't schedule work - ie there is no periodic
   # retrieval
-  defp schedule_work(_, _cache_module) do
+  defp schedule_historic_rates_preload(_, _cache_module) do
     :ok
   end
 
