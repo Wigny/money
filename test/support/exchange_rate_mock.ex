@@ -1,4 +1,4 @@
-defmodule Money.ExchangeRates.Api.Test do
+defmodule Money.ExchangeRatesMock do
   @behaviour Money.ExchangeRates
 
   @app_id "app_id"
@@ -30,8 +30,8 @@ defmodule Money.ExchangeRates.Api.Test do
     {:ok, %{AUD: Decimal.new("0.4"), EUR: Decimal.new("0.9"), USD: Decimal.new("0.6")}}
   end
 
-  def get_historic_rates(~D[2017-02-01], _config) do
-    {:error, {Money.ExchangeRateError, "No exchange rates for 2017-02-01 were found"}}
+  def get_historic_rates(date, _config) do
+    {:error, {Money.ExchangeRateError, "No exchange rates for #{Date.to_string(date)} were found"}}
   end
 
   defp get_rates("invalid_url") do

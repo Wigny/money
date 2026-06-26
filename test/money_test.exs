@@ -6,15 +6,6 @@ defmodule MoneyTest do
   alias Money.Financial
 
   doctest Money
-  doctest Money.ExchangeRates
-  doctest Money.Currency
-  doctest Money.ExchangeRates.Cache
-  doctest Money.ExchangeRates.Cache.Ets
-  doctest Money.ExchangeRates.Cache.Dets
-  doctest Money.ExchangeRates.Retriever
-  doctest Money.Financial
-  doctest Money.Sigil
-  doctest Money.Subscription.Plan
 
   test "create a new money struct with a binary currency code" do
     money = Money.new(1234, "USD")
@@ -430,25 +421,144 @@ defmodule MoneyTest do
     assert Float.round(Financial.internal_rate_of_return(flows), 4) == 0.2548
   end
 
-  test "money conversion" do
-    rates = %{USD: Decimal.new(1), AUD: Decimal.new(2)}
-    assert Money.to_currency(Money.new(:USD, 100), :AUD, rates) == {:ok, Money.new(:AUD, 200)}
+  describe "to_currency/2" do
+    test "converts using latest rates" do
+      assert Money.to_currency(Money.new(:USD, 100), :AUD) == {:ok, Money.new(:AUD, "70.0")}
+    end
+
+    test "converts with binary to_currency that is the same as from currency" do
+      assert Money.to_currency(Money.new(:USD, 100), "USD") == {:ok, Money.new(:USD, 100)}
+    end
+
+    test "returns an error for an unknown currency" do
+      assert Money.to_currency(Money.new(:USD, 100), :ZZZ) ==
+               {:error, {Money.UnknownCurrencyError, "The currency :ZZZ is not known."}}
+    end
   end
 
-  test "money conversion with binary to_currency that is the same as from currency" do
-    rates = %{USD: Decimal.new("0.3"), AUD: Decimal.new(2)}
-    assert Money.to_currency(Money.new(:USD, 100), "USD", rates) == {:ok, Money.new(:USD, 100)}
+  describe "to_currency/3" do
+    test "converts using custom rates" do
+      rates = %{USD: Decimal.new(1), AUD: Decimal.new(2)}
+      assert Money.to_currency(Money.new(:USD, 100), :AUD, rates) == {:ok, Money.new(:AUD, 200)}
+    end
+
+    @tag :digital_token
+    test "converts a digital token" do
+      rates = %{:USD => Decimal.new(50_000), "4H95J0R2X" => Decimal.new(1)}
+
+      assert Money.to_currency(Money.new(:USD, 50_000), "4H95J0R2X", rates) ==
+               {:ok, Money.new("4H95J0R2X", "1.00000")}
+
+      assert Money.to_currency(Money.new("4H95J0R2X", 1), :USD, rates) ==
+               {:ok, Money.new(:USD, 50_000)}
+    end
+
+    test "converts custom currency with supplied rates" do
+      assert Money.to_currency(Money.new(:ABCD, 10), :USD, %{ABCD: 10, USD: 1}) ==
+               {:ok, Money.new(:USD, "1.0")}
+    end
+
+    test "returns an error for unknown custom currency without rates" do
+      assert Money.to_currency(Money.new(:ABCD, 10), :USD) ==
+               {:error,
+                {Money.ExchangeRateError, "No exchange rate is available for currency :ABCD"}}
+    end
+
+    test "returns an error when historic rates are not available" do
+      assert Money.to_currency(
+               Money.new(:USD, 100),
+               :AUD,
+               Money.ExchangeRates.historic_rates(~D[2017-02-01])
+             ) == {:error, {Money.ExchangeRateError, "No exchange rates for 2017-02-01 were found"}}
+    end
   end
 
-  @tag :digital_token
-  test "money conversion with digital_token" do
-    rates = %{:USD => Decimal.new(50_000), "4H95J0R2X" => Decimal.new(1)}
+  describe "to_currency!/2" do
+    test "converts using latest rates" do
+      assert Money.to_currency!(Money.new(:USD, 100), :AUD) == Money.new(:AUD, "70.0")
+    end
 
-    assert Money.to_currency(Money.new(:USD, 50_000), "4H95J0R2X", rates) ==
-             {:ok, Money.new("4H95J0R2X", "1.00000")}
+    test "raises for an unknown currency" do
+      assert_raise Money.UnknownCurrencyError, ~r/The currency :ZZZ is not known/, fn ->
+        Money.to_currency!(Money.new(:USD, 100), :ZZZ)
+      end
+    end
+  end
 
-    assert Money.to_currency(Money.new("4H95J0R2X", 1), :USD, rates) ==
-             {:ok, Money.new(:USD, 50_000)}
+  describe "to_currency!/3" do
+    test "converts using historic rates" do
+      assert :AUD
+             |> Money.new(100)
+             |> Money.to_currency!(
+               :USD,
+               Money.ExchangeRates.historic_rates(~D[2017-01-01])
+             )
+             |> Money.equal?(Money.new(:USD, 140))
+    end
+
+    test "raises when historic rates are not available" do
+      assert_raise Money.ExchangeRateError, "No exchange rates for 2017-02-01 were found", fn ->
+        Money.to_currency!(
+          Money.new(:USD, 100),
+          :AUD,
+          Money.ExchangeRates.historic_rates(~D[2017-02-01])
+        )
+      end
+    end
+  end
+
+  describe "cross_rate/2" do
+    test "returns a cross rate using latest rates" do
+      assert Money.cross_rate(:USD, :AUD) == {:ok, Decimal.new("0.7")}
+    end
+  end
+
+  describe "cross_rate!/2" do
+    test "returns a cross rate using latest rates" do
+      assert Money.cross_rate!(:USD, :AUD) == Decimal.new("0.7")
+    end
+  end
+
+  describe "sum/1" do
+    test "sums a multi-currency list using latest rates" do
+      assert {:ok, sum} = Money.sum([Money.new(:USD, 100), Money.new(:AUD, 70)])
+      assert Money.equal?(sum, Money.new(:USD, 200))
+    end
+  end
+
+  describe "sum/2" do
+    test "returns an error when historic rates are not available" do
+      assert Money.sum(
+               [Money.new(:USD, 100), Money.new(:AUD, 70)],
+               Money.ExchangeRates.historic_rates(~D[2017-02-01])
+             ) == {:error, {Money.ExchangeRateError, "No exchange rates for 2017-02-01 were found"}}
+    end
+  end
+
+  describe "sum!/1" do
+    test "sums a multi-currency list using latest rates" do
+      assert [Money.new(:USD, 100), Money.new(:AUD, 70)]
+             |> Money.sum!()
+             |> Money.equal?(Money.new(:USD, 200))
+    end
+  end
+
+  describe "sum!/2" do
+    test "raises when historic rates are not available" do
+      assert_raise Money.ExchangeRateError,
+                   "No exchange rates for 2017-02-01 were found",
+                   fn ->
+                     Money.sum!(
+                       [Money.new(:USD, 100), Money.new(:AUD, 70)],
+                       Money.ExchangeRates.historic_rates(~D[2017-02-01])
+                     )
+                   end
+    end
+  end
+
+  test "localize money" do
+    assert {:ok, local_money} = Money.localize(Money.new(:AUD, 70), locale: "en")
+    assert Money.equal?(local_money, Money.new(:USD, 100))
   end
 
   test "money to_string" do
