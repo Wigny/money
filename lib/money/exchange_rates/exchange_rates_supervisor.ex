@@ -10,6 +10,11 @@ defmodule Money.ExchangeRates.Supervisor do
 
   @child_name ExchangeRates.Retriever
 
+  @doc false
+  def start_link do
+    Supervisor.start_link(__MODULE__, :ok, name: ExchangeRates.Supervisor)
+  end
+
   @doc """
   Starts the Exchange Rates supervisor and
   optionally starts the exchange rates
@@ -18,22 +23,18 @@ defmodule Money.ExchangeRates.Supervisor do
   ## Options
 
   * `:restart` is a boolean value indicating
-    if the supervisor is to be restarted.  This is
+    if the supervisor is to be restarted. This is
     typically used to move the supervisor from its
     default position under the `ex_money` supervision
-    tree to a different supervision tree.  The default
+    tree to a different supervision tree. The default
     is `false`
 
   * `:start_retriever` is a boolean indicating
     if the exchange rates retriever is to be started
-    when the supervisor is started.  The default is
+    when the supervisor is started. The default is
     defined by the configuration key
     `:auto_start_exchange_rate_service`
   """
-  def start_link do
-    Supervisor.start_link(__MODULE__, :ok, name: ExchangeRates.Supervisor)
-  end
-
   def start_link(options) do
     options = Keyword.merge(default_options(), options)
     if options[:restart], do: stop()
@@ -53,7 +54,7 @@ defmodule Money.ExchangeRates.Supervisor do
   Stop the Money.ExchangeRates.Supervisor.
 
   Unless `ex_money` is configured in `mix.exs` as
-  `rumtime: false`, the Money.ExchangeRates.Supervisor
+  `runtime: false`, the Money.ExchangeRates.Supervisor
   is always started when `ex_money` starts even if the
   config key `:auto_start_exchange_rates_service` is
   set to `false`.
@@ -61,17 +62,17 @@ defmodule Money.ExchangeRates.Supervisor do
 
   In some instances an application may require the
   `Money.ExchangeRates.Supervisor` to be started under
-  a different supervision tree.  In this case it is
+  a different supervision tree. In this case it is
   required to call this function first before a new
   configuration is started.
 
   One use case is when the Exchange Rates service is
   configured with either an API module, a Callback module
-  or a Cache module which uses Ecto and therefore its
+  or a Cache module which uses Ecto and therefore it's
   a requirement that Ecto is started first.
 
   See the README section on "Using Ecto or other applications
-  from within the callback module" for an eanple of how
+  from within the callback module" for an example of how
   to configure the supervisor in this case.
   """
   def stop(supervisor \\ default_supervisor()) do
@@ -92,12 +93,13 @@ defmodule Money.ExchangeRates.Supervisor do
   end
 
   @doc false
+  @impl true
   def init(:ok) do
     Supervisor.init([], strategy: :one_for_one)
   end
 
   @doc """
-  Returns a boolean indicating of the
+  Returns a boolean indicating whether the
   retriever process is configured and
   running
   """
@@ -107,17 +109,17 @@ defmodule Money.ExchangeRates.Supervisor do
 
   @doc """
   Returns the status of the exchange rates
-  retriever.  The returned value is one of:
+  retriever. The returned value is one of:
 
   * `:running` if the service is running. In this
-    state the valid action is `Money.ExchangeRates.Service.stop/0`.
+    state the valid action is `Money.ExchangeRates.Retriever.stop/0`.
 
   * `:stopped` if it is stopped. In this state
     the valid actions are `Money.ExchangeRates.Supervisor.restart_retriever/0`
     or `Money.ExchangeRates.Supervisor.delete_retriever/0`.
 
   * `:not_started` if it is not configured
-    in the supervisor and is not running.  In
+    in the supervisor and is not running. In
     this state the only valid action is
     `Money.ExchangeRates.Supervisor.start_retriever/1`.
 
@@ -143,7 +145,7 @@ defmodule Money.ExchangeRates.Supervisor do
 
   * `config` is a `t:Money.ExchangeRates.Config.t/0`
     struct returned by `Money.ExchangeRates.config/0`
-    and adjusted as required.  The default is
+    and adjusted as required. The default is
     `Money.ExchangeRates.config/0`.
 
   """
@@ -168,7 +170,7 @@ defmodule Money.ExchangeRates.Supervisor do
   end
 
   @doc """
-  Deleted the retriever child specification from
+  Deletes the retriever child specification from
   the exchange rates supervisor.
 
   This is primarily of use if you want to change

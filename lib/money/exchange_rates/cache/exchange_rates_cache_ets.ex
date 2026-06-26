@@ -1,7 +1,7 @@
 defmodule Money.ExchangeRates.Cache.Ets do
   @moduledoc """
   Money.ExchangeRates.Cache implementation for
-  :ets and :dets
+  :ets
   """
 
   @behaviour Money.ExchangeRates.Cache
@@ -12,6 +12,7 @@ defmodule Money.ExchangeRates.Cache.Ets do
   require Money.ExchangeRates.Cache.EtsDets
   Money.ExchangeRates.Cache.EtsDets.define_common_functions()
 
+  @impl true
   def init do
     if :ets.info(@ets_table) == :undefined do
       :ets.new(@ets_table, [
@@ -24,6 +25,7 @@ defmodule Money.ExchangeRates.Cache.Ets do
     end
   end
 
+  @impl true
   def terminate do
     :ok
   end

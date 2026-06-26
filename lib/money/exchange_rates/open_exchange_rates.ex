@@ -6,7 +6,7 @@ defmodule Money.ExchangeRates.OpenExchangeRates do
   ## Required configuration:
 
   The configuration key `:open_exchange_rates_app_id` should be
-  set to your `app_id`.  for example:
+  set to your `app_id`. For example:
 
       config :ex_money,
         open_exchange_rates_app_id: "your_app_id"
@@ -33,7 +33,7 @@ defmodule Money.ExchangeRates.OpenExchangeRates do
 
   @doc """
   Update the retriever configuration to include the requirements
-  for Open Exchange Rates.  This function is invoked when the
+  for Open Exchange Rates. This function is invoked when the
   exchange rate service starts up, just after the ets table
   :exchange_rates is created.
 
@@ -43,12 +43,23 @@ defmodule Money.ExchangeRates.OpenExchangeRates do
   additional configuration specific to this exchange
   rates retrieval module.
   """
+  @impl true
   def init(default_config) do
     url = Money.get_env(:open_exchange_rates_url, @open_exchange_rate_url)
     app_id = Money.get_env(:open_exchange_rates_app_id, nil)
     Map.put(default_config, :retriever_options, %{url: url, app_id: app_id})
   end
 
+  @doc """
+  Decodes the JSON body returned by the Open Exchange Rates API.
+
+  * `body` is the raw response body as a binary or charlist.
+
+  Returns:
+
+  * A map of currency code atoms to `Decimal` exchange rate values.
+  """
+  @impl true
   def decode_rates(body) when is_list(body) do
     body
     |> List.to_string()
@@ -71,8 +82,8 @@ defmodule Money.ExchangeRates.OpenExchangeRates do
   Retrieves the latest exchange rates from Open Exchange Rates site.
 
   * `config` is the retrieval configuration. When invoked from the
-  exchange rates services this will be the config returned from
-  `Money.ExchangeRates.config/0`
+    exchange rates service this will be the config returned from
+    `Money.ExchangeRates.config/0`
 
   Returns:
 
@@ -85,7 +96,7 @@ defmodule Money.ExchangeRates.OpenExchangeRates do
   required.
 
   """
-  @spec get_latest_rates(Money.ExchangeRates.Config.t()) :: {:ok, map()} | {:error, String.t()}
+  @impl true
   def get_latest_rates(config) do
     url = config.retriever_options.url
     app_id = config.retriever_options.app_id
@@ -108,7 +119,7 @@ defmodule Money.ExchangeRates.OpenExchangeRates do
     elements `:year`, `:month` and `:day`.
 
   * `config` is the retrieval configuration. When invoked from the
-    exchange rates services this will be the config returned from
+    exchange rates service this will be the config returned from
     `Money.ExchangeRates.config/0`
 
   Returns:
@@ -121,6 +132,7 @@ defmodule Money.ExchangeRates.OpenExchangeRates do
   service although it can be called outside that context as
   required.
   """
+  @impl true
   def get_historic_rates(date, config) do
     url = config.retriever_options.url
     app_id = config.retriever_options.app_id
@@ -149,6 +161,6 @@ defmodule Money.ExchangeRates.OpenExchangeRates do
   end
 
   defp app_id_not_configured do
-    "Open Exchange Rates app_id is not configured.  Rates are not retrieved."
+    "Open Exchange Rates app_id is not configured. Rates are not retrieved."
   end
 end

@@ -1,6 +1,9 @@
 defmodule Money.ExchangeRates.Cache.EtsDets do
+  @moduledoc false
+
   defmacro define_common_functions do
     quote do
+      @impl Money.ExchangeRates.Cache
       def latest_rates do
         case get(:latest_rates) do
           nil ->
@@ -11,6 +14,7 @@ defmodule Money.ExchangeRates.Cache.EtsDets do
         end
       end
 
+      @impl Money.ExchangeRates.Cache
       def historic_rates(%Date{calendar: Calendar.ISO} = date) do
         case get(date) do
           nil ->
@@ -27,6 +31,7 @@ defmodule Money.ExchangeRates.Cache.EtsDets do
         historic_rates(date)
       end
 
+      @impl Money.ExchangeRates.Cache
       def last_updated do
         case get(:last_updated) do
           nil ->
@@ -38,11 +43,13 @@ defmodule Money.ExchangeRates.Cache.EtsDets do
         end
       end
 
+      @impl Money.ExchangeRates.Cache
       def store_latest_rates(rates, retrieved_at) do
         put(:latest_rates, rates)
         put(:last_updated, retrieved_at)
       end
 
+      @impl Money.ExchangeRates.Cache
       def store_historic_rates(rates, date) do
         put(date, rates)
       end
