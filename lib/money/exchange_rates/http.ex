@@ -33,9 +33,23 @@ defmodule Money.ExchangeRates.HTTP do
     end
   end
 
+  # The ETag cache is a node-wide named table shared by all retrievers. Because
+  # multiple named retrievers may call `get/2` concurrently, creation must be
+  # race-safe: two processes can both observe `:undefined` from `:ets.whereis/1`
+  # and then race on `:ets.new/2`, where the loser would raise `ArgumentError`
+  # for a duplicate named table. Rescue that case and return the existing table.
   defp init_cache do
-    with :undefined <- :ets.whereis(:etag_cache),
-         do: :ets.new(:etag_cache, [:named_table, :public])
+    case :ets.whereis(:etag_cache) do
+      :undefined ->
+        try do
+          :ets.new(:etag_cache, [:named_table, :public])
+        rescue
+          ArgumentError -> :etag_cache
+        end
+
+      _table ->
+        :etag_cache
+    end
   end
 
   defp build_headers(cache, url) do

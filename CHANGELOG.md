@@ -2,6 +2,14 @@
 
 **Note** `ex_money` 5.17.0 and later is supported on Elixir 1.12 and later versions only.
 
+## Unreleased
+
+### Bug Fixes
+
+* `Money.ExchangeRates.HTTP` now creates its shared `:etag_cache` table race-safely, preventing a crash when multiple named retrievers issue their first request concurrently.
+
+* `Money.ExchangeRates.Retriever.config/1` and `reconfigure/2` now return `{:error, reason}` when the retriever is not running instead of exiting.
+
 ## Money v6.0.0
 
 This is the changelog for Money v6.0.0 released on May 8th, 2026. For older changelogs please consult the release tag on [GitHub](https://github.com/ex-money/money/tags)

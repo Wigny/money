@@ -163,4 +163,20 @@ defmodule Money.ExchangeRates.RetrieverTest do
       assert running.cache_module == config.cache_module
     end
   end
+
+  describe "config/1 and reconfigure/2 when the retriever is not running" do
+    test "config/1 returns an error tuple rather than exiting" do
+      assert Retriever.config(:no_such_retriever) ==
+               {:error,
+                {Money.ExchangeRateError, "Exchange rate service does not appear to be running"}}
+    end
+
+    test "reconfigure/2 returns an error tuple rather than exiting" do
+      config = Money.ExchangeRates.default_config()
+
+      assert Retriever.reconfigure(:no_such_retriever, config) ==
+               {:error,
+                {Money.ExchangeRateError, "Exchange rate service does not appear to be running"}}
+    end
+  end
 end

@@ -28,6 +28,16 @@ defmodule Money.ExchangeRates.Retriever do
       Money.ExchangeRates.Retriever.latest_rates(:open_exchange_rates)
       Money.ExchangeRates.Retriever.historic_rates(:fixer, ~D[2024-01-01])
 
+  > #### Each named retriever needs its own cache module {: .warning}
+  >
+  > The bundled cache implementations (`Money.ExchangeRates.Cache.Ets` and
+  > `Money.ExchangeRates.Cache.Dets`) use a fixed, module-wide storage location
+  > (the `:exchange_rates` ETS table / a single DETS file). Two retrievers
+  > configured with the same `cache_module` therefore share one cache and will
+  > overwrite each other's rates. When running multiple named retrievers, give
+  > each its own `cache_module` (a distinct module backed by a distinct ETS
+  > table name or DETS path) in its configuration.
+
   By default exchange rates are retrieved from
   [Open Exchange Rates](http://openexchangerates.org). The retrieval interval
   is configured via the `:exchange_rates_retrieve_every` key (milliseconds):
@@ -233,7 +243,10 @@ defmodule Money.ExchangeRates.Retriever do
 
   """
   def reconfigure(retriever \\ __MODULE__, %Money.ExchangeRates.Config{} = config) do
-    GenServer.call(retriever, {:reconfigure, config})
+    case Process.whereis(retriever) do
+      nil -> {:error, exchange_rate_service_error()}
+      pid -> GenServer.call(pid, {:reconfigure, config})
+    end
   end
 
   @doc """
@@ -242,7 +255,10 @@ defmodule Money.ExchangeRates.Retriever do
 
   """
   def config(retriever \\ __MODULE__) do
-    GenServer.call(retriever, :config)
+    case Process.whereis(retriever) do
+      nil -> {:error, exchange_rate_service_error()}
+      pid -> GenServer.call(pid, :config)
+    end
   end
 
   @doc deprecated:

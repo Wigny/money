@@ -50,5 +50,18 @@ defmodule Money.ExchangeRates.HTTPTest do
       assert HTTP.get("https://example.com/error") ==
                {:error, {Money.ExchangeRateError, ":timeout"}}
     end
+
+    test "tolerates the etag cache table already existing" do
+      # Multiple named retrievers share the node-wide `:etag_cache` table and may
+      # create it concurrently. Creation must not raise when the table is already
+      # present (whether created by another retriever or a previous request).
+      unless :ets.whereis(:etag_cache) == :undefined do
+        :ets.delete(:etag_cache)
+      end
+
+      :ets.new(:etag_cache, [:named_table, :public])
+
+      assert HTTP.get("https://example.com") == {:ok, "response"}
+    end
   end
 end
