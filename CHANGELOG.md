@@ -2,7 +2,13 @@
 
 **Note** `ex_money` 5.17.0 and later is supported on Elixir 1.12 and later versions only.
 
-## Unreleased
+## Money v6.1.0
+
+This is the changelog for Money v6.1.0 released on June 26th, 2026. For older changelogs please consult the release tag on [GitHub](https://github.com/ex-money/money/tags)
+
+### Enhancements
+
+* `Money.ExchangeRates.Retriever` can now be added directly to a supervision tree as a child spec, and multiple named retrievers can run concurrently, each with its own `:api_module`, `:cache_module` and configuration. `Money.ExchangeRates.Supervisor` and the `:auto_start_exchange_rate_service` config key are deprecated but still functional.
 
 ### Bug Fixes
 
