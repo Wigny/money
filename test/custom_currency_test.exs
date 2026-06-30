@@ -398,6 +398,27 @@ defmodule Money.CustomCurrencyTest do
         end
       end
     end
+
+    test "malformed :custom_currencies entries are logged and skipped" do
+      previous = Application.get_env(:ex_money, :custom_currencies)
+
+      Application.put_env(:ex_money, :custom_currencies, [
+        :not_a_tuple,
+        {:XBAD2, [name: "Valid After Bad"]}
+      ])
+
+      try do
+        log =
+          capture_log(fn ->
+            assert :ok = Money.Application.register_custom_currencies()
+          end)
+
+        assert log =~ "Ignoring invalid :custom_currencies entry :not_a_tuple"
+        assert %Localize.Currency{code: :XBAD2} = Money.Currency.Store.get(:XBAD2)
+      after
+        restore_config(:ex_money, :custom_currencies, previous)
+      end
+    end
   end
 
   # ── Store lifecycle ───────────────────────────────────────────

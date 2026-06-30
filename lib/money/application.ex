@@ -31,26 +31,55 @@ defmodule Money.Application do
     end
   end
 
-  @doc false
+  @doc """
+  Registers the currencies declared in the `:custom_currencies` configuration
+  into the running currency store.
+
+  This is an escape hatch, not the normal flow. Configured currencies are
+  registered automatically by `Money.Currency.Store` when it starts, and again
+  after any supervisor restart, so most applications never call this function.
+  Use it only to re-apply the configuration to an already-running store after
+  changing `:custom_currencies` at runtime. Currencies that are already
+  registered are left unchanged, and any entry that fails to register is logged
+  and skipped rather than raised.
+
+  ### Returns
+
+  * `:ok` in all cases. Per-currency failures are emitted as log warnings, not
+    returned.
+
+  ### Examples
+
+      iex> Money.Application.register_custom_currencies()
+      :ok
+
+  """
+  @spec register_custom_currencies() :: :ok
   def register_custom_currencies do
-    case Application.get_env(:ex_money, :custom_currencies) do
-      nil ->
+    :ex_money
+    |> Application.get_env(:custom_currencies, [])
+    |> List.wrap()
+    |> Enum.each(&register_configured_currency/1)
+  end
+
+  defp register_configured_currency({code, options}) do
+    case Money.Currency.new(code, options) do
+      {:ok, _currency} ->
         :ok
 
-      currencies when is_list(currencies) ->
-        Enum.each(currencies, fn {code, options} ->
-          case Money.Currency.new(code, options) do
-            {:ok, _currency} ->
-              :ok
-
-            {:error, exception} ->
-              Logger.warning(
-                "Failed to register custom currency #{inspect(code)}: " <>
-                  Exception.message(exception)
-              )
-          end
-        end)
+      {:error, exception} ->
+        Logger.warning(
+          "Failed to register custom currency #{inspect(code)}: " <>
+            Exception.message(exception)
+        )
     end
+  end
+
+  defp register_configured_currency(other) do
+    Logger.warning(
+      "Ignoring invalid :custom_currencies entry #{inspect(other)}; " <>
+        "expected a {code, options} tuple"
+    )
   end
 
   @doc false

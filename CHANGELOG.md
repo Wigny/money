@@ -10,6 +10,8 @@ This is the changelog for Money v6.1.0 released on July 1st, 2026. For older cha
 
 * `Money.ExchangeRates.Retriever` can now be added directly to a supervision tree as a child spec, and multiple named retrievers can run concurrently, each with its own `:api_module`, `:cache_module` and configuration. `Money.ExchangeRates.Supervisor` and the `:auto_start_exchange_rate_service` config key are deprecated but still functional.
 
+* `Money.Application.register_custom_currencies/0` is now documented as an escape hatch for re-applying the `:custom_currencies` configuration to an already-running store, and ignores malformed configuration entries (logging them) instead of raising.
+
 ### Bug Fixes
 
 * `Money.ExchangeRates.HTTP` now creates its shared `:etag_cache` table race-safely, preventing a crash when multiple named retrievers issue their first request concurrently.
