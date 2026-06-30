@@ -15,11 +15,10 @@ defmodule Money.Application do
         args
       end
 
-    supervisor = Supervisor.start_link(children, opts)
-
-    register_custom_currencies()
-
-    supervisor
+    # Currencies declared in `:custom_currencies` are registered by
+    # `Money.Currency.Store` when it starts (and after any restart), so no
+    # separate registration step is required here.
+    Supervisor.start_link(children, opts)
   end
 
   defp exchange_rate_supervisor do

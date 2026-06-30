@@ -121,10 +121,26 @@ defmodule Money.Currency do
   @spec new(atom() | String.t(), Keyword.t()) ::
           {:ok, Localize.Currency.t()} | {:error, Exception.t()}
   def new(currency_code, options \\ []) do
-    with {:ok, currency_code} <- validate_new_currency(currency_code),
-         {:ok, options} <- validate_options(currency_code, options) do
-      currency = struct(Localize.Currency, [{:code, currency_code} | options])
-      Money.Currency.Store.put(currency)
+    with {:ok, code} <- validate_currency_code(currency_code),
+         :ok <- refute_already_defined(code),
+         {:ok, validated_options} <- validate_options(code, options) do
+      Money.Currency.Store.put(struct(Localize.Currency, [{:code, code} | validated_options]))
+    end
+  end
+
+  @doc false
+  # Validates a custom currency code and its options and returns the
+  # `Localize.Currency` struct without writing it to the store or checking
+  # whether it is already registered. Used by `Money.Currency.Store` to
+  # materialise currencies declared in the `:custom_currencies` configuration.
+  # Performs no `GenServer` call, so it is safe to invoke from within the store
+  # process during startup.
+  @spec build(atom() | String.t(), Keyword.t()) ::
+          {:ok, Localize.Currency.t()} | {:error, Exception.t()}
+  def build(currency_code, options \\ []) do
+    with {:ok, code} <- validate_currency_code(currency_code),
+         {:ok, validated_options} <- validate_options(code, options) do
+      {:ok, struct(Localize.Currency, [{:code, code} | validated_options])}
     end
   end
 
@@ -296,23 +312,24 @@ defmodule Money.Currency do
 
   # ── Private helpers ───────────────────────────────────────────
 
-  defp validate_new_currency(currency_code) do
+  # Validates the shape of a candidate custom currency code, rejecting codes
+  # that collide with an ISO 4217 code. Does not consult the store, so it is
+  # side-effect free; the already-registered check is `refute_already_defined/1`.
+  defp validate_currency_code(currency_code) do
     canonical_code = normalize_code(currency_code)
 
     if canonical_code in Localize.Currency.known_currency_codes() do
       {:error, Money.CurrencyAlreadyDefinedError.exception(currency: canonical_code)}
     else
-      case validate_custom_currency_code(currency_code) do
-        {:ok, code} ->
-          if code in Money.Currency.Store.codes() do
-            {:error, Money.CurrencyAlreadyDefinedError.exception(currency: code)}
-          else
-            {:ok, code}
-          end
+      validate_custom_currency_code(currency_code)
+    end
+  end
 
-        {:error, _} = error ->
-          error
-      end
+  defp refute_already_defined(code) do
+    if code in Money.Currency.Store.codes() do
+      {:error, Money.CurrencyAlreadyDefinedError.exception(currency: code)}
+    else
+      :ok
     end
   end
 

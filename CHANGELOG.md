@@ -22,6 +22,8 @@ This is the changelog for Money v6.1.0 released on July 1st, 2026. For older cha
 
 * Validating an unknown currency code (via `Money.new/2`, `Money.validate_currency/2`, `Money.Currency.currency_for_code/1` or the `~M` sigil) no longer converts the code to an atom, closing an atom-table exhaustion vector when codes originate from untrusted input. Unknown codes are now reported exactly as supplied, so a binary code appears quoted in the error rather than as an atom.
 
+* Currencies declared in the `:custom_currencies` configuration are now registered by `Money.Currency.Store` as it starts, so they are restored automatically if the store is restarted by its supervisor rather than being lost. Currencies added at runtime with `Money.Currency.new/2` remain runtime-only and are not restored after a restart.
+
 ## Money v6.0.0
 
 This is the changelog for Money v6.0.0 released on May 8th, 2026. For older changelogs please consult the release tag on [GitHub](https://github.com/ex-money/money/tags)

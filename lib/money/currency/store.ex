@@ -12,6 +12,7 @@ defmodule Money.Currency.Store do
   """
 
   use GenServer
+  require Logger
 
   @persistent_key {:ex_money, :custom_currencies}
 
@@ -97,8 +98,44 @@ defmodule Money.Currency.Store do
 
   @impl true
   def init(_options) do
-    :persistent_term.put(@persistent_key, %{})
-    {:ok, %{}}
+    # Currencies declared in the `:custom_currencies` configuration are
+    # materialised here so that they are (re-)registered every time the store
+    # starts, including after a supervisor restart. Runtime currencies added
+    # later with `Money.Currency.new/2` do not survive a restart.
+    currencies = configured_currencies()
+    :persistent_term.put(@persistent_key, currencies)
+    {:ok, currencies}
+  end
+
+  defp configured_currencies do
+    :ex_money
+    |> Application.get_env(:custom_currencies, [])
+    |> List.wrap()
+    |> Enum.reduce(%{}, &put_configured_currency/2)
+  end
+
+  defp put_configured_currency({code, options}, currencies) do
+    case Money.Currency.build(code, options) do
+      {:ok, currency} ->
+        Map.put(currencies, currency.code, currency)
+
+      {:error, exception} ->
+        Logger.warning(
+          "Failed to register custom currency #{inspect(code)}: " <>
+            Exception.message(exception)
+        )
+
+        currencies
+    end
+  end
+
+  defp put_configured_currency(other, currencies) do
+    Logger.warning(
+      "Ignoring invalid :custom_currencies entry #{inspect(other)}; " <>
+        "expected a {code, options} tuple"
+    )
+
+    currencies
   end
 
   @impl true

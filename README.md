@@ -186,9 +186,12 @@ config :ex_money,
 ```
 
 Each entry is a `{currency_code, options}` tuple where `options` are those
-accepted by `Money.Currency.new/2`. Alternatively, call `Money.Currency.new/2`
+accepted by `Money.Currency.new/2`. Configured currencies are registered by the
+currency store as it starts, so they are restored automatically if the store is
+ever restarted by its supervisor. Alternatively, call `Money.Currency.new/2`
 yourself at any point after startup, for example from your own application's
-`start/2` callback.
+`start/2` callback; currencies registered this way are not restored after a
+restart.
 
 ### Custom currencies and the `~M` sigil
 

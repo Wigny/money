@@ -15,6 +15,23 @@ defmodule Money.CustomCurrencyTest do
     end
   end
 
+  # Restarts the custom currency store via its supervisor, exercising the same
+  # init path that runs after a crash. Synchronous: when it returns, the store
+  # is running and has re-read the `:custom_currencies` configuration.
+  defp restart_store do
+    :ok = Supervisor.terminate_child(Money.Supervisor, Money.Currency.Store)
+    {:ok, _pid} = Supervisor.restart_child(Money.Supervisor, Money.Currency.Store)
+    :ok
+  end
+
+  defp restore_config(app, key, previous) do
+    if previous do
+      Application.put_env(app, key, previous)
+    else
+      Application.delete_env(app, key)
+    end
+  end
+
   # ── Currency code normalization ───────────────────────────────
 
   describe "code form and normalization" do
@@ -379,6 +396,55 @@ defmodule Money.CustomCurrencyTest do
         if previous do
           Application.put_env(:ex_money, :custom_currencies, previous)
         end
+      end
+    end
+  end
+
+  # ── Store lifecycle ───────────────────────────────────────────
+
+  describe "custom currency store lifecycle" do
+    test "configured currencies are re-registered when the store restarts" do
+      previous = Application.get_env(:ex_money, :custom_currencies)
+
+      Application.put_env(:ex_money, :custom_currencies, [
+        {:XRST, [name: "Restart Survivor", digits: 2]}
+      ])
+
+      try do
+        restart_store()
+        assert %Localize.Currency{code: :XRST} = Money.Currency.Store.get(:XRST)
+
+        # A runtime-only currency (added with new/2, not declared in config)
+        # is intentionally not restored after a restart.
+        ensure_currency(:XRUN, name: "Runtime Only")
+        assert %Localize.Currency{code: :XRUN} = Money.Currency.Store.get(:XRUN)
+
+        restart_store()
+        assert %Localize.Currency{code: :XRST} = Money.Currency.Store.get(:XRST)
+        assert Money.Currency.Store.get(:XRUN) == nil
+      after
+        restore_config(:ex_money, :custom_currencies, previous)
+        restart_store()
+      end
+    end
+
+    test "invalid :custom_currencies entries are logged and skipped on restart" do
+      previous = Application.get_env(:ex_money, :custom_currencies)
+
+      Application.put_env(:ex_money, :custom_currencies, [
+        {:USD, [name: "ISO Collision"]},
+        {:XOKK, [name: "Valid Survivor"]}
+      ])
+
+      try do
+        log = capture_log(fn -> restart_store() end)
+
+        assert log =~ "Failed to register custom currency :USD"
+        assert %Localize.Currency{code: :XOKK} = Money.Currency.Store.get(:XOKK)
+        assert Money.Currency.Store.get(:USD) == nil
+      after
+        restore_config(:ex_money, :custom_currencies, previous)
+        restart_store()
       end
     end
   end
