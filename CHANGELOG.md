@@ -18,6 +18,10 @@ This is the changelog for Money v6.1.0 released on July 1st, 2026. For older cha
 
 * `Money.to_string/2` now formats custom and private currencies registered with `Money.Currency.new/2` by passing the stored `Localize.Currency` struct to the formatter rather than an atom code that `Localize.Currency` cannot resolve. ISO 4217 currencies continue to use locale-aware resolution.
 
+* The `~M` sigil now raises a clearer error when given an unregistered custom or private currency, distinguishing a currency that is simply not yet registered from one used in a compile-time position (such as a module attribute) where runtime-registered currencies are never available.
+
+* Validating an unknown currency code (via `Money.new/2`, `Money.validate_currency/2`, `Money.Currency.currency_for_code/1` or the `~M` sigil) no longer converts the code to an atom, closing an atom-table exhaustion vector when codes originate from untrusted input. Unknown codes are now reported exactly as supplied, so a binary code appears quoted in the error rather than as an atom.
+
 ## Money v6.0.0
 
 This is the changelog for Money v6.0.0 released on May 8th, 2026. For older changelogs please consult the release tag on [GitHub](https://github.com/ex-money/money/tags)

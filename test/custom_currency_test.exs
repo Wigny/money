@@ -321,6 +321,26 @@ defmodule Money.CustomCurrencyTest do
       end
     end
 
+    test "a currency registered from config can be formatted with Money.to_string/2" do
+      previous = Application.get_env(:ex_money, :custom_currencies)
+
+      Application.put_env(:ex_money, :custom_currencies, [
+        {:XSTF, [name: "Startup Formatted", symbol: "₷", digits: 2]}
+      ])
+
+      try do
+        assert :ok = Money.Application.register_custom_currencies()
+        assert {:ok, formatted} = Money.to_string(Money.new(:XSTF, "5"))
+        assert formatted == "₷5.00"
+      after
+        if previous do
+          Application.put_env(:ex_money, :custom_currencies, previous)
+        else
+          Application.delete_env(:ex_money, :custom_currencies)
+        end
+      end
+    end
+
     test "errors during startup are logged but do not crash" do
       previous = Application.get_env(:ex_money, :custom_currencies)
 
@@ -388,6 +408,35 @@ defmodule Money.CustomCurrencyTest do
 
     test "still formats ISO currencies via locale-aware resolution" do
       assert {:ok, "$1,234.50"} = Money.to_string(Money.new(:USD, "1234.5"))
+    end
+  end
+
+  # ── Code shape predicate ──────────────────────────────────────
+
+  describe "Money.Currency.private_or_custom_code?/1" do
+    test "is true for private-use codes" do
+      assert Money.Currency.private_or_custom_code?(:XSC)
+      assert Money.Currency.private_or_custom_code?("XSC")
+    end
+
+    test "is true for custom codes" do
+      assert Money.Currency.private_or_custom_code?(:BTCX)
+      assert Money.Currency.private_or_custom_code?("QFF1")
+      assert Money.Currency.private_or_custom_code?(:A1B2C3)
+    end
+
+    test "is false for ISO 4217 codes" do
+      refute Money.Currency.private_or_custom_code?(:USD)
+      refute Money.Currency.private_or_custom_code?("EUR")
+    end
+
+    test "is false for malformed codes" do
+      refute Money.Currency.private_or_custom_code?(:AB)
+      refute Money.Currency.private_or_custom_code?("ABCDEFGHIJK")
+      refute Money.Currency.private_or_custom_code?(:"1ABC")
+      refute Money.Currency.private_or_custom_code?("X-Y")
+      refute Money.Currency.private_or_custom_code?("")
+      refute Money.Currency.private_or_custom_code?(nil)
     end
   end
 end

@@ -30,10 +30,10 @@ defmodule MoneyTest do
 
   test "create a new money struct wth a invalid binary currency code and binary amount" do
     money = Money.new("1234", "ZZZ")
-    assert money == {:error, {Money.UnknownCurrencyError, "The currency :ZZZ is not known."}}
+    assert money == {:error, {Money.UnknownCurrencyError, "The currency \"ZZZ\" is not known."}}
 
     money = Money.new("ZZZ", "1234")
-    assert money == {:error, {Money.UnknownCurrencyError, "The currency :ZZZ is not known."}}
+    assert money == {:error, {Money.UnknownCurrencyError, "The currency \"ZZZ\" is not known."}}
   end
 
   test "create a new! money struct with a binary currency code" do
@@ -150,15 +150,15 @@ defmodule MoneyTest do
   end
 
   test "raise when creating a new money struct from invalid input" do
-    assert_raise Money.UnknownCurrencyError, "The currency :ABCDE is not known.", fn ->
+    assert_raise Money.UnknownCurrencyError, "The currency \"ABCDE\" is not known.", fn ->
       Money.new!("ABCDE", 100)
     end
 
-    assert_raise Money.UnknownCurrencyError, "The currency :ABCDE is not known.", fn ->
+    assert_raise Money.UnknownCurrencyError, "The currency \"ABCDE\" is not known.", fn ->
       Money.new!(Decimal.new(100), "ABCDE")
     end
 
-    assert_raise Money.UnknownCurrencyError, "The currency :ABCDE is not known.", fn ->
+    assert_raise Money.UnknownCurrencyError, "The currency \"ABCDE\" is not known.", fn ->
       Money.new!("ABCDE", Decimal.new(100))
     end
   end
@@ -188,7 +188,7 @@ defmodule MoneyTest do
 
   test "creating a money struct with an invalid binary currency code returns error tuple" do
     assert Money.new("XYZABC", 100) ==
-             {:error, {Money.UnknownCurrencyError, "The currency :XYZABC is not known."}}
+             {:error, {Money.UnknownCurrencyError, "The currency \"XYZABC\" is not known."}}
   end
 
   test "creating a money struct with a code that is also a digital token short code" do

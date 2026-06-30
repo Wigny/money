@@ -170,6 +170,37 @@ The `Money.Currency.Store` GenServer is started automatically by the `ex_money` 
 Money.Currency.new(:XBTC, name: "Bitcoin", symbol: "₿", digits: 8)
 ```
 
+### Registering currencies at application start
+
+Custom and private currencies are held in a runtime store, so they must be
+registered each time the application starts. The simplest way is to declare
+them in configuration; `ex_money` registers them automatically when its
+application starts:
+
+```elixir
+config :ex_money,
+  custom_currencies: [
+    {:XBTC, name: "Bitcoin", symbol: "₿", digits: 8},
+    {:XSC, name: "Scrip", symbol: "ş", digits: 2}
+  ]
+```
+
+Each entry is a `{currency_code, options}` tuple where `options` are those
+accepted by `Money.Currency.new/2`. Alternatively, call `Money.Currency.new/2`
+yourself at any point after startup, for example from your own application's
+`start/2` callback.
+
+### Custom currencies and the `~M` sigil
+
+Because custom and private currencies are registered at runtime, the `~M`
+sigil can only validate them at runtime. A `~M[100]XBTC` literal in a function
+body is fine — it is evaluated when the function is called, by which time the
+currency is registered. The same literal in a *compile-time* position (a module
+attribute, a `defstruct` default, or top-level module body) is evaluated during
+compilation, before any application has started and before the currency is
+registered, and will raise `Money.UnknownCurrencyError`. Use `Money.new/2` at
+runtime for those cases.
+
 ## Exchange rates and currency conversion
 
 Money includes a process to retrieve exchange rates on a periodic basis. These exchange rates can then be used to support currency conversion. It will attempt to retrieve exchange rates every 5 minutes by default.
@@ -223,6 +254,8 @@ An optional callback module can also be defined.  This module defines a `rates_r
 * `:json_library` determines which json library to be used for decoding. Two common options are `Jason` and `Poison`. The default is `:json` (built into OTP).
 
 * `:exclude_protocol_implementations` is a protocol module, or list of protocol modules, that will not be defined by `ex_money`. The default is `[]`. The protocol implementations influenced by this option are `Jason.Encoder`, `JSON.Encoder` and `Phoenix.HTML.Safe`.
+
+* `:custom_currencies` is a list of `{currency_code, options}` tuples defining custom and private currencies to register automatically at application start. Each `options` keyword list is the same as that accepted by `Money.Currency.new/2`. The default is `[]`. See [Registering currencies at application start](#registering-currencies-at-application-start).
 
 ### JSON library configuration
 

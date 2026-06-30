@@ -252,19 +252,46 @@ defmodule Money.Currency do
 
   """
   def currency_for_code(code) do
-    case Localize.Currency.currency_for_code(code) do
-      {:ok, _currency} = success ->
-        success
+    case normalize_code(code) do
+      nil ->
+        {:error, {Money.UnknownCurrencyError, "The currency #{inspect(code)} is not known."}}
 
-      {:error, _} ->
-        case Money.Currency.Store.get(normalize_code(code)) do
-          nil ->
-            {:error, {Money.UnknownCurrencyError, "The currency #{inspect(code)} is not known."}}
+      normalized ->
+        case Localize.Currency.currency_for_code(normalized) do
+          {:ok, _currency} = success ->
+            success
 
-          currency ->
-            {:ok, currency}
+          {:error, _} ->
+            case Money.Currency.Store.get(normalized) do
+              %Localize.Currency{} = currency ->
+                {:ok, currency}
+
+              nil ->
+                {:error,
+                 {Money.UnknownCurrencyError, "The currency #{inspect(code)} is not known."}}
+            end
         end
     end
+  end
+
+  @doc false
+  # Returns true if `code` has the shape of a custom or private currency
+  # code (as opposed to a malformed or ISO 4217 code). Used to tailor error
+  # messages when an unknown currency is encountered.
+  @spec private_or_custom_code?(atom() | String.t() | any()) :: boolean()
+  def private_or_custom_code?(code) when is_atom(code) and not is_nil(code) do
+    private_or_custom_code?(Atom.to_string(code))
+  end
+
+  def private_or_custom_code?(code) when is_binary(code) do
+    upcased = String.upcase(code)
+
+    Regex.match?(@valid_custom_currency_code, upcased) or
+      Regex.match?(@valid_private_currency_code, upcased)
+  end
+
+  def private_or_custom_code?(_code) do
+    false
   end
 
   # ── Private helpers ───────────────────────────────────────────
@@ -336,7 +363,15 @@ defmodule Money.Currency do
 
   defp normalize_code(code) when is_atom(code), do: code
 
+  # Resolves a binary code to an existing atom without creating new atoms.
+  # Returns `nil` when no matching atom exists — such a code cannot name a
+  # known or registered currency. Prevents atom-table exhaustion from
+  # untrusted input (see String.to_existing_atom/1).
   defp normalize_code(code) when is_binary(code) do
-    code |> String.upcase() |> String.to_atom()
+    String.to_existing_atom(String.upcase(code))
+  rescue
+    ArgumentError -> nil
   end
+
+  defp normalize_code(_code), do: nil
 end

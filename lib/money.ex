@@ -865,13 +865,6 @@ defmodule Money do
     end
   end
 
-  defp normalize_currency_code(code) when is_atom(code) do
-    code |> Atom.to_string() |> String.upcase() |> String.to_atom()
-  end
-
-  defp normalize_currency_code(code) when is_binary(code), do: String.upcase(code)
-  defp normalize_currency_code(code), do: code
-
   defp normalize_filter([:all]), do: :all
   defp normalize_filter([filter]) when is_atom(filter), do: filter
   defp normalize_filter([]), do: nil
@@ -3011,24 +3004,55 @@ defmodule Money do
 
   @doc false
   def validate_currency(currency_code, options \\ []) do
-    normalized = normalize_currency_code(currency_code)
+    case existing_currency_atom(currency_code) do
+      nil ->
+        validate_digital_token(currency_code, options, currency_not_known_error(currency_code))
 
-    case Localize.Currency.validate_currency(normalized) do
-      {:ok, code} ->
-        {:ok, code}
+      code ->
+        case Localize.Currency.validate_currency(code) do
+          {:ok, validated_code} ->
+            {:ok, validated_code}
 
-      {:error, _} ->
-        store_key = if is_binary(normalized), do: String.to_atom(normalized), else: normalized
+          {:error, _} ->
+            case Money.Currency.Store.get(code) do
+              %Localize.Currency{code: stored_code} ->
+                {:ok, stored_code}
 
-        case Money.Currency.Store.get(store_key) do
-          %Localize.Currency{code: code} ->
-            {:ok, code}
-
-          nil ->
-            error = {Money.UnknownCurrencyError, "The currency #{inspect(store_key)} is not known."}
-            validate_digital_token(currency_code, options, error)
+              nil ->
+                validate_digital_token(
+                  currency_code,
+                  options,
+                  currency_not_known_error(currency_code)
+                )
+            end
         end
     end
+  end
+
+  # Resolves a currency code to an existing atom without ever creating a new
+  # one. A binary that has no matching atom can be neither a known ISO
+  # currency nor a registered custom currency (those atoms already exist), so
+  # it is returned as `nil` and treated as unknown downstream. This prevents
+  # atom-table exhaustion from untrusted currency codes — see
+  # `String.to_existing_atom/1`.
+  defp existing_currency_atom(code) when is_atom(code) and not is_nil(code) do
+    String.to_existing_atom(code |> Atom.to_string() |> String.upcase())
+  rescue
+    ArgumentError -> code
+  end
+
+  defp existing_currency_atom(code) when is_binary(code) do
+    String.to_existing_atom(String.upcase(code))
+  rescue
+    ArgumentError -> nil
+  end
+
+  defp existing_currency_atom(_code) do
+    nil
+  end
+
+  defp currency_not_known_error(currency) do
+    {Money.UnknownCurrencyError, "The currency #{inspect(currency)} is not known."}
   end
 
   defp validate_digital_token(currency_code, options, original_error) do
