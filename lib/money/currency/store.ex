@@ -2,12 +2,16 @@ defmodule Money.Currency.Store do
   @moduledoc """
   Persistent-term-backed store for custom currencies.
 
-  Custom currencies are currencies defined at runtime using
-  `Money.Currency.new/2`. They are stored in `:persistent_term`
-  for fast concurrent read access.
+  Custom currencies are currencies defined with `Money.Currency.new/2`,
+  either at runtime or declaratively through the `:custom_currencies`
+  application configuration. They are stored in `:persistent_term` for
+  fast concurrent read access.
 
-  This module is started as part of the Money application
-  supervision tree.
+  This module is started as part of the Money application supervision
+  tree. Currencies declared in `:custom_currencies` are registered each
+  time the store starts, so they are restored automatically after a
+  supervisor restart; currencies added at runtime with
+  `Money.Currency.new/2` are not.
 
   """
 

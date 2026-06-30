@@ -261,10 +261,31 @@ defmodule Money.Currency do
   # ── Currency lookup ───────────────────────────────────────────
 
   @doc """
-  Returns the currency data for the given code.
+  Returns the currency definition for a currency code.
 
-  Checks locale-specific data first, then falls back to the
-  custom currency store.
+  The lookup checks the locale-aware currency data first and then falls back
+  to the custom currency store. Unknown codes never create new atoms.
+
+  ### Arguments
+
+  * `code` is an ISO 4217 currency code, or a custom or private currency code,
+    as an atom or a string.
+
+  ### Returns
+
+  * `{:ok, currency}` where `currency` is a `t:Localize.Currency.t/0` struct.
+
+  * `{:error, {Money.UnknownCurrencyError, message}}` if `code` is not a known
+    or registered currency.
+
+  ### Examples
+
+      iex> {:ok, currency} = Money.Currency.currency_for_code(:USD)
+      iex> currency.code
+      :USD
+
+      iex> Money.Currency.currency_for_code(:NotACurrency)
+      {:error, {Money.UnknownCurrencyError, "The currency :NotACurrency is not known."}}
 
   """
   def currency_for_code(code) do
