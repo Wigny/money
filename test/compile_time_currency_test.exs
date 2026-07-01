@@ -59,5 +59,31 @@ defmodule Money.CompileTimeCurrencyTest do
     test "a private currency that is neither configured nor registered is unknown" do
       assert {:error, {Money.UnknownCurrencyError, _reason}} = Money.validate_currency("XZZ")
     end
+
+    test "a malformed code is not accepted as a currency even when declared in configuration" do
+      previous = Application.get_env(:ex_money, :custom_currencies)
+
+      # "AB" is too short and "1XY" starts with a digit — neither conforms to the
+      # custom/private currency code format, so the configuration fallback must
+      # not treat them as valid currencies even though they are declared. This
+      # mirrors the store, which logs and skips such entries at startup.
+      # (Whether such a code resolves to a digital token is a separate concern;
+      # the point here is that it must not validate as the configured currency.)
+      Application.put_env(:ex_money, :custom_currencies, [
+        {:AB, name: "Too Short"},
+        {:"1XY", name: "Digit First"}
+      ])
+
+      try do
+        refute Money.validate_currency("AB") == {:ok, :AB}
+        refute Money.validate_currency("1XY") == {:ok, :"1XY"}
+      after
+        if previous do
+          Application.put_env(:ex_money, :custom_currencies, previous)
+        else
+          Application.delete_env(:ex_money, :custom_currencies)
+        end
+      end
+    end
   end
 end

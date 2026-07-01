@@ -3042,9 +3042,19 @@ defmodule Money do
   # store is unavailable; the store then supplies the definitions at runtime for
   # formatting. Declare configured currencies with atom codes so their atoms
   # exist at compile time. Comparison is done on strings so no atoms are created.
+  # A configured currency is accepted only if its code also conforms to the
+  # custom/private currency code format, so the compile-time fallback matches
+  # what the store would actually register (a malformed code in `:custom_currencies`
+  # is logged and skipped by the store, so it must be rejected here too).
   # `code` is always a non-nil atom here (resolved by `existing_currency_atom/1`
   # before this is reached).
   defp configured_currency?(code) do
+    Money.Currency.private_or_custom_code?(code) and declared_as_custom_currency?(code)
+  end
+
+  # Declare configured currencies with atom codes so their atoms exist at compile
+  # time. Comparison is done on strings so no atoms are created.
+  defp declared_as_custom_currency?(code) do
     target = code |> Atom.to_string() |> String.upcase()
 
     :ex_money
