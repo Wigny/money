@@ -61,10 +61,10 @@ defmodule Money.Sigil do
           "key or with Money.Currency.new/2 before use."
 
       true ->
-        "The currency #{inspect(currency)} looks like a private or custom currency. Private and " <>
-          "custom currencies are registered at runtime, so the ~M sigil cannot use one in a " <>
-          "compile-time position such as a module attribute, a defstruct default or a module body. " <>
-          "Move the sigil into a function body, or use Money.new/2."
+        "The currency #{inspect(currency)} looks like a private or custom currency. Currencies " <>
+          "added at runtime with Money.Currency.new/2 are not available in a compile-time position " <>
+          "such as a module attribute, a defstruct default or a module body. Declare it in the " <>
+          ":custom_currencies configuration to use it here, or move the sigil into a function body."
     end
   end
 end

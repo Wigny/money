@@ -195,14 +195,26 @@ restart.
 
 ### Custom currencies and the `~M` sigil
 
-Because custom and private currencies are registered at runtime, the `~M`
-sigil can only validate them at runtime. A `~M[100]XBTC` literal in a function
-body is fine — it is evaluated when the function is called, by which time the
-currency is registered. The same literal in a *compile-time* position (a module
-attribute, a `defstruct` default, or top-level module body) is evaluated during
-compilation, before any application has started and before the currency is
-registered, and will raise `Money.UnknownCurrencyError`. Use `Money.new/2` at
-runtime for those cases.
+The `~M` sigil (and `Money.new/2`) can use a custom or private currency in a
+*compile-time* position — a module attribute, a `defstruct` default, or the
+top-level module body — provided the currency is declared in the
+`:custom_currencies` configuration. The configuration is readable at compile
+time, so the currency code validates even though the currency store is not yet
+running, and the resulting `Money` struct (which stores only the currency code)
+is fully usable at runtime:
+
+```elixir
+# config/config.exs
+config :ex_money, custom_currencies: [{:XBTC, name: "Bitcoin", symbol: "₿", digits: 8}]
+
+# any module
+@reserve_price ~M[100]XBTC   # validated at compile time from configuration
+```
+
+Declare configured currencies with atom codes (as above) so their atoms exist
+at compile time. A currency added *only* at runtime with `Money.Currency.new/2`
+is not known during compilation, so it cannot be used in a compile-time
+position — use it in a function body instead, where it is evaluated at runtime.
 
 ## Exchange rates and currency conversion
 

@@ -64,7 +64,7 @@ defmodule Money.SigilTest do
 
       assert message =~ "compile-time position"
       assert message =~ "module attribute"
-      assert message =~ "Money.new/2"
+      assert message =~ ":custom_currencies"
     end
   end
 end

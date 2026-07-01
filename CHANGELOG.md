@@ -10,6 +10,8 @@ This is the changelog for Money v6.1.0 released on July 1st, 2026. For older cha
 
 * `Money.ExchangeRates.Retriever` can now be added directly to a supervision tree as a child spec, and multiple named retrievers can run concurrently, each with its own `:api_module`, `:cache_module` and configuration. `Money.ExchangeRates.Supervisor` and the `:auto_start_exchange_rate_service` config key are deprecated but still functional.
 
+* Custom and private currencies declared in the `:custom_currencies` configuration can now be used in compile-time positions such as module attributes, by the `~M` sigil and `Money.new/2`. `Money.validate_currency/2` treats the configuration as a validation source, which is readable at compile time even though the currency store is not yet running.
+
 * `Money.Application.register_custom_currencies/0` is now documented as an escape hatch for re-applying the `:custom_currencies` configuration to an already-running store, and ignores malformed configuration entries (logging them) instead of raising.
 
 ### Bug Fixes

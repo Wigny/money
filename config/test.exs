@@ -20,4 +20,10 @@ config :ex_money,
   api_module: Money.ExchangeRatesMock,
   log_failure: nil,
   log_info: nil,
-  json_library: Jason
+  json_library: Jason,
+  # A private-use currency declared in compile-time configuration so it can be
+  # used in compile-time positions (module attributes) by the ~M sigil and
+  # Money.new/2. Exercised by Money.CompileTimeCurrencyTest.
+  custom_currencies: [
+    {:XCT, name: "Compile Time Currency", symbol: "⊙", digits: 2}
+  ]
