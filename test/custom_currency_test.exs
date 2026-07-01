@@ -32,6 +32,20 @@ defmodule Money.CustomCurrencyTest do
     end
   end
 
+  # Polls until the supervisor has restarted the store under a new pid.
+  defp wait_for_store_restart(old_pid) do
+    Enum.reduce_while(1..200, nil, fn _iteration, _acc ->
+      case Process.whereis(Money.Currency.Store) do
+        pid when is_pid(pid) and pid != old_pid ->
+          {:halt, pid}
+
+        _not_yet ->
+          Process.sleep(5)
+          {:cont, nil}
+      end
+    end)
+  end
+
   # ── Currency code normalization ───────────────────────────────
 
   describe "code form and normalization" do
@@ -466,6 +480,35 @@ defmodule Money.CustomCurrencyTest do
       after
         restore_config(:ex_money, :custom_currencies, previous)
         restart_store()
+      end
+    end
+
+    test "the supervisor restarts the store after a crash and re-registers configuration" do
+      original_pid = Process.whereis(Money.Currency.Store)
+      ref = Process.monitor(original_pid)
+
+      # A runtime-only currency should not survive the crash; a configured one
+      # (:XCT from config/test.exs) must be re-registered by the restarted store.
+      ensure_currency(:XCRA, name: "Crash Casualty")
+
+      Process.exit(original_pid, :kill)
+      assert_receive {:DOWN, ^ref, :process, ^original_pid, :killed}
+
+      new_pid = wait_for_store_restart(original_pid)
+
+      assert is_pid(new_pid) and new_pid != original_pid
+      assert %Localize.Currency{code: :XCT} = Money.Currency.Store.get(:XCT)
+      assert Money.Currency.Store.get(:XCRA) == nil
+    end
+
+    test "Money.Currency.new/2 returns an error when the store is not running" do
+      :ok = Supervisor.terminate_child(Money.Supervisor, Money.Currency.Store)
+
+      try do
+        assert {:error, %Money.CurrencyNotSavedError{}} =
+                 Money.Currency.new(:XDWN, name: "Store Down")
+      after
+        {:ok, _} = Supervisor.restart_child(Money.Supervisor, Money.Currency.Store)
       end
     end
   end
