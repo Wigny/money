@@ -56,9 +56,7 @@ defmodule Money.Application do
   """
   @spec register_custom_currencies() :: :ok
   def register_custom_currencies do
-    :ex_money
-    |> Application.get_env(:custom_currencies, [])
-    |> List.wrap()
+    Money.Currency.configured_currency_specs()
     |> Enum.each(&register_configured_currency/1)
   end
 

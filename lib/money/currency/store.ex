@@ -112,9 +112,7 @@ defmodule Money.Currency.Store do
   end
 
   defp configured_currencies do
-    :ex_money
-    |> Application.get_env(:custom_currencies, [])
-    |> List.wrap()
+    Money.Currency.configured_currency_specs()
     |> Enum.reduce(%{}, &put_configured_currency/2)
   end
 

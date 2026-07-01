@@ -144,6 +144,27 @@ defmodule Money.Currency do
     end
   end
 
+  @doc false
+  # Returns true if `code` is declared in the `:custom_currencies` configuration
+  # and would build successfully. Validity is decided by `build/2` — the exact
+  # function the store uses to register configured currencies at startup — so a
+  # code is accepted here if and only if it would register in the store. This is
+  # how `Money.validate_currency/2` accepts configured currencies at compile
+  # time (where the store is not running) without any behaviour differing from
+  # runtime. Declare configured currencies with atom codes so their atoms exist
+  # at compile time.
+  @spec configured?(atom()) :: boolean()
+  def configured?(code) when is_atom(code) and not is_nil(code) do
+    Enum.any?(configured_currency_specs(), fn
+      {config_code, options} -> match?({:ok, %{code: ^code}}, build(config_code, options))
+      _ -> false
+    end)
+  end
+
+  def configured?(_code) do
+    false
+  end
+
   # ── Known currency lists ──────────────────────────────────────
 
   @doc """
@@ -232,6 +253,19 @@ defmodule Money.Currency do
 
   # ── Custom currency accessors ─────────────────────────────────
 
+  @doc false
+  # The raw list of `{code, options}` specifications declared in the
+  # `:custom_currencies` configuration. This is the single point at which the
+  # configuration is read, so the store (which registers them at startup) and
+  # `Money.validate_currency/2` (which validates them at compile time) always
+  # see the same declarations.
+  @spec configured_currency_specs() :: [{atom() | String.t(), Keyword.t()}]
+  def configured_currency_specs do
+    :ex_money
+    |> Application.get_env(:custom_currencies, [])
+    |> List.wrap()
+  end
+
   @doc """
   Returns a map of all custom currencies.
 
@@ -312,9 +346,11 @@ defmodule Money.Currency do
   end
 
   @doc false
-  # Returns true if `code` has the shape of a custom or private currency
-  # code (as opposed to a malformed or ISO 4217 code). Used to tailor error
-  # messages when an unknown currency is encountered.
+  # Returns true if `code` has the shape of a custom or private currency code
+  # (as opposed to a malformed or ISO 4217 code). This is the single definition
+  # of the custom/private code format: `validate_custom_currency_code/1` (the
+  # registration path) and the `~M` sigil's error message both delegate here, so
+  # the format cannot be applied inconsistently.
   @spec private_or_custom_code?(atom() | String.t() | any()) :: boolean()
   def private_or_custom_code?(code) when is_atom(code) and not is_nil(code) do
     private_or_custom_code?(Atom.to_string(code))
@@ -354,22 +390,17 @@ defmodule Money.Currency do
     end
   end
 
-  defp validate_custom_currency_code(currency_code) when is_binary(currency_code) do
-    upcase_code = String.upcase(currency_code)
-
-    if Regex.match?(@valid_custom_currency_code, upcase_code) ||
-         Regex.match?(@valid_private_currency_code, upcase_code) do
-      {:ok, String.to_atom(upcase_code)}
+  # Delegates the format check to `private_or_custom_code?/1` (the single source
+  # of the format rule) and, when valid, returns the canonical upcased atom.
+  defp validate_custom_currency_code(currency_code) do
+    if private_or_custom_code?(currency_code) do
+      {:ok, currency_code |> to_string() |> String.upcase() |> String.to_atom()}
     else
       {:error,
        Money.UnknownCurrencyError.exception(
          "The currency #{inspect(currency_code)} is not a valid custom currency code."
        )}
     end
-  end
-
-  defp validate_custom_currency_code(currency_code) when is_atom(currency_code) do
-    validate_custom_currency_code(to_string(currency_code))
   end
 
   defp validate_options(code, options) do

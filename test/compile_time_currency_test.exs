@@ -60,6 +60,39 @@ defmodule Money.CompileTimeCurrencyTest do
       assert {:error, {Money.UnknownCurrencyError, _reason}} = Money.validate_currency("XZZ")
     end
 
+    test "compile-time validity matches store registration (build/2) exactly" do
+      previous = Application.get_env(:ex_money, :custom_currencies)
+
+      # One buildable entry, one with a valid code but missing :name (the store
+      # cannot register it), and one malformed code. Compile-time acceptance
+      # must equal store registration for every one of them.
+      specs = [
+        {:XVA, [name: "Valid"]},
+        {:XVO, []},
+        {:AB, [name: "Too Short"]}
+      ]
+
+      Application.put_env(:ex_money, :custom_currencies, specs)
+
+      try do
+        for {code, options} <- specs do
+          registers? = match?({:ok, _}, Money.Currency.build(code, options))
+          assert Money.Currency.configured?(code) == registers?
+        end
+
+        # Concretely: only the buildable entry is accepted at compile time.
+        assert Money.Currency.configured?(:XVA)
+        refute Money.Currency.configured?(:XVO)
+        refute Money.Currency.configured?(:AB)
+      after
+        if previous do
+          Application.put_env(:ex_money, :custom_currencies, previous)
+        else
+          Application.delete_env(:ex_money, :custom_currencies)
+        end
+      end
+    end
+
     test "a malformed code is not accepted as a currency even when declared in configuration" do
       previous = Application.get_env(:ex_money, :custom_currencies)
 

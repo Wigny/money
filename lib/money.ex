@@ -3019,7 +3019,12 @@ defmodule Money do
                 {:ok, stored_code}
 
               nil ->
-                if configured_currency?(code) do
+                # The runtime store is empty at compile time. Accept currencies
+                # declared in the `:custom_currencies` configuration, which is
+                # readable at compile time; `Money.Currency.configured?/1` decides
+                # validity with the same `build/2` the store uses, so a currency
+                # is accepted here if and only if it would register at runtime.
+                if Money.Currency.configured?(code) do
                   {:ok, code}
                 else
                   validate_digital_token(
@@ -3031,51 +3036,6 @@ defmodule Money do
             end
         end
     end
-  end
-
-  # Custom and private currencies declared in the `:custom_currencies`
-  # configuration are known at compile time, because the configuration is
-  # loaded before an application's modules are compiled. The runtime store, by
-  # contrast, is not running until the application starts. Consulting the
-  # configuration here lets `~M` and `Money.new/2` validate configured
-  # currencies in compile-time positions (such as module attributes), where the
-  # store is unavailable; the store then supplies the definitions at runtime for
-  # formatting. Declare configured currencies with atom codes so their atoms
-  # exist at compile time. Comparison is done on strings so no atoms are created.
-  # A configured currency is accepted only if its code also conforms to the
-  # custom/private currency code format, so the compile-time fallback matches
-  # what the store would actually register (a malformed code in `:custom_currencies`
-  # is logged and skipped by the store, so it must be rejected here too).
-  # `code` is always a non-nil atom here (resolved by `existing_currency_atom/1`
-  # before this is reached).
-  defp configured_currency?(code) do
-    Money.Currency.private_or_custom_code?(code) and declared_as_custom_currency?(code)
-  end
-
-  # Declare configured currencies with atom codes so their atoms exist at compile
-  # time. Comparison is done on strings so no atoms are created.
-  defp declared_as_custom_currency?(code) do
-    target = code |> Atom.to_string() |> String.upcase()
-
-    :ex_money
-    |> Application.get_env(:custom_currencies, [])
-    |> List.wrap()
-    |> Enum.any?(fn
-      {config_code, _options} -> config_code_string(config_code) == target
-      _ -> false
-    end)
-  end
-
-  defp config_code_string(code) when is_atom(code) and not is_nil(code) do
-    code |> Atom.to_string() |> String.upcase()
-  end
-
-  defp config_code_string(code) when is_binary(code) do
-    String.upcase(code)
-  end
-
-  defp config_code_string(_code) do
-    nil
   end
 
   # Resolves a currency code to an existing atom without ever creating a new
