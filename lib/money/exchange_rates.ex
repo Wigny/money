@@ -162,7 +162,14 @@ defmodule Money.ExchangeRates do
   def config do
     api_module = default_config().api_module
 
-    if function_exported?(api_module, :init, 1) do
+    # `Code.ensure_loaded?/1` must precede `function_exported?/3`: the latter
+    # returns `false` for a module that has not yet been loaded, which happens
+    # during application startup because the API module is referenced only as
+    # an atom from configuration and is therefore not loaded on demand. Without
+    # forcing the load the optional `init/1` callback is silently skipped,
+    # leaving `retriever_options` as `nil` and crashing the first rate fetch
+    # with `{:badmap, nil}`. See https://github.com/ex-money/money/issues/202.
+    if Code.ensure_loaded?(api_module) and function_exported?(api_module, :init, 1) do
       api_module.init(default_config())
     else
       default_config()

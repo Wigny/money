@@ -155,6 +155,42 @@ defmodule Money.ExchangeRatesTest do
     end
   end
 
+  describe "config/0" do
+    test "runs the api module's init/1 to populate retriever_options even when the module is not loaded (issue #202)" do
+      # Reproduces https://github.com/ex-money/money/issues/202: during
+      # application startup the API module is referenced only as a config atom
+      # and may not be loaded, so `function_exported?/3` returns false and the
+      # `init/1` callback (which sets `:retriever_options`) is skipped, leaving
+      # it `nil` and crashing the first rate fetch with `{:badmap, nil}`.
+      previous = Application.get_env(:ex_money, :api_module)
+      Application.put_env(:ex_money, :api_module, Money.ExchangeRates.OpenExchangeRates)
+
+      try do
+        # Force the "not loaded yet" condition. Safe here: the retriever started
+        # in setup uses the mock API module, so no process is running this code.
+        :code.purge(Money.ExchangeRates.OpenExchangeRates)
+        :code.delete(Money.ExchangeRates.OpenExchangeRates)
+
+        refute :erlang.function_exported(Money.ExchangeRates.OpenExchangeRates, :init, 1),
+               "precondition: the api module must be unloaded for this regression"
+
+        config = Money.ExchangeRates.config()
+
+        assert is_map(config.retriever_options),
+               "retriever_options must be populated, got: #{inspect(config.retriever_options)}"
+
+        assert Map.has_key?(config.retriever_options, :url)
+        assert Map.has_key?(config.retriever_options, :app_id)
+      after
+        if previous do
+          Application.put_env(:ex_money, :api_module, previous)
+        else
+          Application.delete_env(:ex_money, :api_module)
+        end
+      end
+    end
+  end
+
   defp trace_module(pid, module) do
     :erlang.trace_pattern({module, :_, :_}, true, [:local])
     :erlang.trace(pid, true, [:call])

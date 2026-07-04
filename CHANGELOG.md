@@ -2,6 +2,16 @@
 
 **Note** `ex_money` 5.17.0 and later is supported on Elixir 1.12 and later versions only.
 
+## Money v6.1.1
+
+This is the changelog for Money v6.1.1 released on July 4th, 2026. For older changelogs please consult the release tag on [GitHub](https://github.com/ex-money/money/tags)
+
+### Bug Fixes
+
+* Fix a `{:badmap, nil}` crash in `Money.ExchangeRates.Retriever` on startup when the exchange rates service is added directly to a supervision tree. `Money.ExchangeRates.config/0` now loads the configured `:api_module` before checking for its optional `init/1` callback, so `:retriever_options` is populated even when the module has not yet been loaded. Thanks to @Terbium-135 for the report. Closes #202.
+
+* `Money.Subscription` now loads a caller-supplied calendar module before checking for `months_in_year/1`, so a custom calendar that has not yet been loaded is used correctly rather than silently falling back to a 12-month year. This is the same `function_exported?/3`-before-load defect fixed for the exchange rates configuration.
+
 ## Money v6.1.0
 
 This is the changelog for Money v6.1.0 released on July 4th, 2026. For older changelogs please consult the release tag on [GitHub](https://github.com/ex-money/money/tags)

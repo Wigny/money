@@ -948,7 +948,12 @@ defmodule Money.Subscription do
 
   @default_months_in_year 12
   defp months_in_year(%{year: year, calendar: calendar}) do
-    if function_exported?(calendar, :months_in_year, 1) do
+    # `Code.ensure_loaded?/1` must precede `function_exported?/3`: the latter
+    # returns `false` for a module that has not been loaded. `calendar` is a
+    # runtime value taken from a date-like map, so a caller-supplied calendar
+    # module may not yet be loaded; without forcing the load the check would
+    # spuriously fall back to the default rather than call the calendar.
+    if Code.ensure_loaded?(calendar) and function_exported?(calendar, :months_in_year, 1) do
       calendar.months_in_year(year)
     else
       @default_months_in_year
