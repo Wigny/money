@@ -21,9 +21,12 @@ config :ex_money,
   log_failure: nil,
   log_info: nil,
   json_library: Jason,
-  # A private-use currency declared in compile-time configuration so it can be
-  # used in compile-time positions (module attributes) by the ~M sigil and
-  # Money.new/2. Exercised by Money.CompileTimeCurrencyTest.
+  # Currencies declared in compile-time configuration so they can be used in
+  # compile-time positions (module attributes) by the ~M sigil and Money.new/2.
+  # Exercised by Money.CompileTimeCurrencyTest. :XCT is a 3-character private
+  # code; :XCT4 is a 4-character custom code (they exercise both sigil
+  # modifier lengths).
   custom_currencies: [
-    {:XCT, name: "Compile Time Currency", symbol: "⊙", digits: 2}
+    {:XCT, name: "Compile Time Currency", symbol: "⊙", digits: 2},
+    {:XCT4, name: "Compile Time Custom", digits: 0}
   ]

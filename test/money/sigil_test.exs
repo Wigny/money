@@ -18,6 +18,31 @@ defmodule Money.SigilTest do
     end
   end
 
+  describe "~M with custom currencies of varying length" do
+    # A currency's sigil modifier is a charlist whose length equals the code
+    # length. Private codes are 3 characters but custom codes are 4-10
+    # (`^[A-Z][A-Z0-9]{3,9}$`), so the sigil must accept modifiers of any of
+    # those lengths — not only the 3 characters an ISO code uses. This mirrors
+    # the range that `Money.Currency.new/2` accepts.
+    test "resolves a 4-character custom currency" do
+      ensure_currency(:SGA4, name: "Sigil Four", digits: 0)
+
+      assert sigil_M("250", ~c"SGA4") == Money.new(:SGA4, "250")
+    end
+
+    test "resolves a custom currency containing digits" do
+      ensure_currency(:SG1B2, name: "Sigil Alphanumeric")
+
+      assert sigil_M("10", ~c"SG1B2") == Money.new(:SG1B2, "10")
+    end
+
+    test "resolves a 10-character custom currency (maximum length)" do
+      ensure_currency(:SGLONGCODE, name: "Sigil Longest")
+
+      assert sigil_M("1", ~c"SGLONGCODE") == Money.new(:SGLONGCODE, "1")
+    end
+  end
+
   describe "~M with private currencies" do
     test "resolves a registered private currency" do
       ensure_currency(:XAB, name: "Sigil Private")

@@ -13,10 +13,21 @@ defmodule Money.CompileTimeCurrencyTest do
   @sigil_price ~M[100]XCT
   @new_price Money.new(:XCT, "250.50")
 
+  # A 4-character custom currency (:XCT4) in a compile-time sigil position. The
+  # sigil modifier here is a 4-element charlist, so this only compiles once the
+  # sigil accepts codes longer than the 3 characters an ISO code uses. This is
+  # the Ash-style usage from issue #195: a custom currency in a module attribute.
+  @sigil_custom_price ~M[250]XCT4
+
   describe "compile-time positions" do
     test "a configured currency can be used in a ~M sigil module attribute" do
       assert %Money{currency: :XCT} = @sigil_price
       assert @sigil_price == Money.new!(:XCT, "100")
+    end
+
+    test "a configured multi-character custom currency can be used in a ~M sigil module attribute" do
+      assert %Money{currency: :XCT4} = @sigil_custom_price
+      assert @sigil_custom_price == Money.new!(:XCT4, "250")
     end
 
     test "a configured currency can be used with Money.new/2 in a module attribute" do

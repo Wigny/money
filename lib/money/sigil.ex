@@ -15,7 +15,7 @@ defmodule Money.Sigil do
 
   """
   @spec sigil_M(binary, list(char)) :: Money.t() | {:error, {module(), String.t()}}
-  def sigil_M(amount, [_, _, _] = currency) do
+  def sigil_M(amount, [_ | _] = currency) do
     Money.new(to_decimal(amount), atomize(currency))
   end
 
