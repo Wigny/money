@@ -1,8 +1,8 @@
 defmodule MoneySubscriptionTest do
   use ExUnit.Case
-  alias Money.Subscription.Plan
-  alias Money.Subscription.Change
   alias Money.Subscription
+  alias Money.Subscription.Change
+  alias Money.Subscription.Plan
 
   doctest Money.Subscription
   doctest Money.Subscription.Plan

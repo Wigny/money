@@ -411,9 +411,9 @@ defmodule MoneyTest do
   test "Calculate irr with one outflow" do
     flows = [
       {1, Money.new(:USD, -123_400)},
-      {2, Money.new(:USD, 36200)},
-      {3, Money.new(:USD, 54800)},
-      {4, Money.new(:USD, 48100)}
+      {2, Money.new(:USD, 36_200)},
+      {3, Money.new(:USD, 54_800)},
+      {4, Money.new(:USD, 48_100)}
     ]
 
     assert Float.round(Financial.internal_rate_of_return(flows), 4) == 0.0596
@@ -620,17 +620,17 @@ defmodule MoneyTest do
 
   test "the integer and exponent for a number with more than the required decimal places" do
     m = Money.new(:USD, "200.012356")
-    assert Money.to_integer_exp(m) == {:USD, 20001, -2, Money.new(:USD, "0.002356")}
+    assert Money.to_integer_exp(m) == {:USD, 20_001, -2, Money.new(:USD, "0.002356")}
   end
 
   test "the integer and exponent for a number with no decimal places" do
     m = Money.new(:USD, "200.00")
-    assert Money.to_integer_exp(m) == {:USD, 20000, -2, Money.new(:USD, "0.00")}
+    assert Money.to_integer_exp(m) == {:USD, 20_000, -2, Money.new(:USD, "0.00")}
   end
 
   test "the integer and exponent for a number with one less than the required decimal places" do
     m = Money.new(:USD, "200.1")
-    assert Money.to_integer_exp(m) == {:USD, 20010, -2, Money.new(:USD, "0.0")}
+    assert Money.to_integer_exp(m) == {:USD, 20_010, -2, Money.new(:USD, "0.0")}
   end
 
   test "the integer and exponent for a currency with no decimal places" do

@@ -1,4 +1,5 @@
 defmodule GenerateSplits do
+  @moduledoc false
   require ExUnitProperties
 
   def generate_money do

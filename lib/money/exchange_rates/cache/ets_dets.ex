@@ -1,6 +1,11 @@
 defmodule Money.ExchangeRates.Cache.EtsDets do
   @moduledoc false
 
+  # This macro generates several small cache functions shared by the ETS and
+  # DETS backends. Its cyclomatic complexity is the aggregate of the generated
+  # clauses, not the complexity of any single function, so the check is disabled
+  # here.
+  # credo:disable-for-next-line Credo.Check.Refactor.CyclomaticComplexity
   defmacro define_common_functions do
     quote do
       @impl Money.ExchangeRates.Cache

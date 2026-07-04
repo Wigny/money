@@ -72,6 +72,9 @@ defmodule Money.InvalidDigitsError do
   end
 end
 
+# Public exception module; the name is part of the API and cannot be renamed
+# to the `…Error` convention without a breaking change.
+# credo:disable-for-next-line Credo.Check.Consistency.ExceptionNames
 defmodule Money.Invalid do
   defexception [:message]
 
@@ -88,6 +91,9 @@ defmodule Money.ParseError do
   end
 end
 
+# Public exception module; the name is part of the API and cannot be renamed
+# to the `…Error` convention without a breaking change.
+# credo:disable-for-next-line Credo.Check.Consistency.ExceptionNames
 defmodule Money.Subscription.NoCurrentPlan do
   defexception [:message]
 
@@ -112,6 +118,9 @@ defmodule Money.Subscription.DateError do
   end
 end
 
+# Public exception module; the name is part of the API and cannot be renamed
+# to the `…Error` convention without a breaking change.
+# credo:disable-for-next-line Credo.Check.Consistency.ExceptionNames
 defmodule Money.Subscription.PlanPending do
   defexception [:message]
 

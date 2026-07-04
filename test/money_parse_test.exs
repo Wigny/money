@@ -36,7 +36,7 @@ defmodule MoneyTest.Parse do
       assert Money.parse("australian dollar 12346.45") == Money.new(:AUD, "12346.45")
       assert Money.parse("12346.45 australian dollars") == Money.new(:AUD, "12346.45")
       assert Money.parse("12346.45 Australian Dollars") == Money.new(:AUD, "12346.45")
-      assert Money.parse("12 346 dollar australien", locale: "fr") == Money.new(:AUD, 12346)
+      assert Money.parse("12 346 dollar australien", locale: "fr") == Money.new(:AUD, 12_346)
     end
 
     test "parses with locale specific separators" do

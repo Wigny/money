@@ -188,10 +188,11 @@ defmodule Money do
 
   def new(currency_code, amount, options)
       when is_currency_code(currency_code) and is_integer(amount) do
-    with {:ok, code} <- validate_currency(currency_code, options) do
-      format_options = extract_format_options(options)
-      %Money{amount: Decimal.new(amount), currency: code, format_options: format_options}
-    else
+    case validate_currency(currency_code, options) do
+      {:ok, code} ->
+        format_options = extract_format_options(options)
+        %Money{amount: Decimal.new(amount), currency: code, format_options: format_options}
+
       {:error, {Money.UnknownCurrencyError, message}} ->
         {:error, {Money.UnknownCurrencyError, message}}
     end
@@ -590,13 +591,14 @@ defmodule Money do
   @spec parse(String.t(), Keyword.t()) :: Money.t() | {:error, {module(), String.t()}}
 
   def parse(string, options \\ []) do
-    with {:ok, result, "", _, _, _} <- Money.Parser.money_parser(String.trim(string)) do
-      result
-      |> Enum.map(fn {k, v} -> {k, String.trim_trailing(v)} end)
-      |> Keyword.put_new(:currency, Keyword.get(options, :default_currency))
-      |> Map.new()
-      |> maybe_create_money(string, options)
-    else
+    case Money.Parser.money_parser(String.trim(string)) do
+      {:ok, result, "", _, _, _} ->
+        result
+        |> Enum.map(fn {k, v} -> {k, String.trim_trailing(v)} end)
+        |> Keyword.put_new(:currency, Keyword.get(options, :default_currency))
+        |> Map.new()
+        |> maybe_create_money(string, options)
+
       _ ->
         {:error, {Money.ParseError, "Could not parse #{inspect(string)}."}}
     end
@@ -849,19 +851,16 @@ defmodule Money do
   defp digital_token_symbol(token_id) when is_binary(token_id) do
     if Code.ensure_loaded?(DigitalToken) do
       symbols = apply(DigitalToken, :symbols, [])
-
-      case Map.get(symbols, token_id) do
-        nil ->
-          case apply(DigitalToken, :short_name, [token_id]) do
-            {:ok, name} -> name
-            _ -> token_id
-          end
-
-        symbol ->
-          symbol
-      end
+      Map.get(symbols, token_id) || digital_token_short_name(token_id)
     else
       token_id
+    end
+  end
+
+  defp digital_token_short_name(token_id) do
+    case apply(DigitalToken, :short_name, [token_id]) do
+      {:ok, name} -> name
+      _ -> token_id
     end
   end
 
@@ -2254,8 +2253,8 @@ defmodule Money do
   end
 
   defp round_to_decimal_digits(%Money{currency: code, amount: amount}, options) do
-    with {:ok, currency} <- Money.Currency.currency_for_code(code),
-         {:ok, rounding, _options} = digits_from_options(currency, options) do
+    with {:ok, currency} <- Money.Currency.currency_for_code(code) do
+      {:ok, rounding, _options} = digits_from_options(currency, options)
       rounding_mode = Keyword.get(options, :rounding_mode, @default_rounding_mode)
       rounded_amount = Decimal.round(amount, rounding, rounding_mode)
       %Money{currency: code, amount: rounded_amount}
@@ -2263,8 +2262,8 @@ defmodule Money do
   end
 
   defp round_to_nearest(%Money{currency: code} = money, options) do
-    with {:ok, currency} <- Money.Currency.currency_for_code(code),
-         {:ok, digits, _options} = digits_from_options(currency, options) do
+    with {:ok, currency} <- Money.Currency.currency_for_code(code) do
+      {:ok, digits, _options} = digits_from_options(currency, options)
       increment = increment_from_options(currency, options)
       do_round_to_nearest(money, digits, increment, options)
     end
@@ -2789,9 +2788,8 @@ defmodule Money do
   defp digits_from_options(currency_data, options) when is_list(options) do
     {fractional_digits, options} = Keyword.pop(options, :currency_digits)
 
-    with {:ok, digits} <- do_digits_from_options(currency_data, fractional_digits) do
-      {:ok, digits, options}
-    else
+    case do_digits_from_options(currency_data, fractional_digits) do
+      {:ok, digits} -> {:ok, digits, options}
       :error -> {:error, invalid_digits_error(fractional_digits)}
       other -> other
     end
@@ -3010,30 +3008,28 @@ defmodule Money do
 
       code ->
         case Localize.Currency.validate_currency(code) do
-          {:ok, validated_code} ->
-            {:ok, validated_code}
+          {:ok, validated_code} -> {:ok, validated_code}
+          {:error, _} -> validate_custom_currency(currency_code, code, options)
+        end
+    end
+  end
 
-          {:error, _} ->
-            case Money.Currency.Store.get(code) do
-              %Localize.Currency{code: stored_code} ->
-                {:ok, stored_code}
+  # Resolves a code that is not a known ISO 4217 currency: first the runtime
+  # custom currency store, then the `:custom_currencies` configuration (which is
+  # readable at compile time, when the store is not yet running), and finally a
+  # digital token. `Money.Currency.configured?/1` decides configuration validity
+  # with the same `build/2` the store uses, so a currency is accepted here if
+  # and only if it would register at runtime.
+  defp validate_custom_currency(currency_code, code, options) do
+    case Money.Currency.Store.get(code) do
+      %Localize.Currency{code: stored_code} ->
+        {:ok, stored_code}
 
-              nil ->
-                # The runtime store is empty at compile time. Accept currencies
-                # declared in the `:custom_currencies` configuration, which is
-                # readable at compile time; `Money.Currency.configured?/1` decides
-                # validity with the same `build/2` the store uses, so a currency
-                # is accepted here if and only if it would register at runtime.
-                if Money.Currency.configured?(code) do
-                  {:ok, code}
-                else
-                  validate_digital_token(
-                    currency_code,
-                    options,
-                    currency_not_known_error(currency_code)
-                  )
-                end
-            end
+      nil ->
+        if Money.Currency.configured?(code) do
+          {:ok, code}
+        else
+          validate_digital_token(currency_code, options, currency_not_known_error(currency_code))
         end
     end
   end

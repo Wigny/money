@@ -1,4 +1,5 @@
 defmodule Money.ExchangeRatesMock do
+  @moduledoc false
   @behaviour Money.ExchangeRates
 
   @app_id "app_id"

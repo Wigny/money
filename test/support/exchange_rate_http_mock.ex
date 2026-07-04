@@ -1,4 +1,5 @@
 defmodule Money.ExchangeRatesHttpMock do
+  @moduledoc false
   @etag ~c"test-etag-123"
   @date ~c"Mon, 01 Jan 2024 00:00:00 GMT"
   @response_headers [{~c"etag", @etag}, {~c"date", @date}]

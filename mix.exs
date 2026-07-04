@@ -34,6 +34,17 @@ defmodule Money.Mixfile do
     ]
   end
 
+  def cli do
+    [
+      preferred_envs: [
+        coveralls: :test,
+        "coveralls.detail": :test,
+        "coveralls.html": :test,
+        "coveralls.json": :test
+      ]
+    ]
+  end
+
   defp description do
     """
     Money functions for operations on and localization of a money data type with support
@@ -99,6 +110,8 @@ defmodule Money.Mixfile do
       {:decimal, "~> 1.6 or ~> 2.0 or ~> 3.0"},
       {:phoenix_html, "~> 2.0 or ~> 3.0 or ~> 4.0", optional: true},
       {:dialyxir, "~> 1.0", only: [:dev, :test], runtime: false},
+      {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
+      {:excoveralls, "~> 0.18", only: :test},
       {:jason, "~> 1.0", optional: true},
       {:stream_data, "~> 1.0", only: [:dev, :test]},
       {:benchee, "~> 1.0", optional: true, only: :dev},

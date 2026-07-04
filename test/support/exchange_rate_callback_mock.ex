@@ -1,4 +1,5 @@
 defmodule Money.ExchangeRatesCallbackMock do
+  @moduledoc false
   @behaviour Money.ExchangeRates.Callback
 
   def init do

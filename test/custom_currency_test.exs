@@ -3,6 +3,8 @@ defmodule Money.CustomCurrencyTest do
 
   import ExUnit.CaptureLog
 
+  alias Money.Currency.Store
+
   # Idempotent currency creation for setup blocks. Tests in this
   # module register currencies in the global Store, which persists
   # across tests, so re-running (e.g. with `mix test --stale`) or
@@ -11,7 +13,7 @@ defmodule Money.CustomCurrencyTest do
   defp ensure_currency(code, options) do
     case Money.Currency.new(code, options) do
       {:ok, currency} -> currency
-      {:error, %Money.CurrencyAlreadyDefinedError{}} -> Money.Currency.Store.get(code)
+      {:error, %Money.CurrencyAlreadyDefinedError{}} -> Store.get(code)
     end
   end
 
@@ -19,8 +21,8 @@ defmodule Money.CustomCurrencyTest do
   # init path that runs after a crash. Synchronous: when it returns, the store
   # is running and has re-read the `:custom_currencies` configuration.
   defp restart_store do
-    :ok = Supervisor.terminate_child(Money.Supervisor, Money.Currency.Store)
-    {:ok, _pid} = Supervisor.restart_child(Money.Supervisor, Money.Currency.Store)
+    :ok = Supervisor.terminate_child(Money.Supervisor, Store)
+    {:ok, _pid} = Supervisor.restart_child(Money.Supervisor, Store)
     :ok
   end
 
@@ -35,7 +37,7 @@ defmodule Money.CustomCurrencyTest do
   # Polls until the supervisor has restarted the store under a new pid.
   defp wait_for_store_restart(old_pid) do
     Enum.reduce_while(1..200, nil, fn _iteration, _acc ->
-      case Process.whereis(Money.Currency.Store) do
+      case Process.whereis(Store) do
         pid when is_pid(pid) and pid != old_pid ->
           {:halt, pid}
 
@@ -339,10 +341,10 @@ defmodule Money.CustomCurrencyTest do
         assert :ok = Money.Application.register_custom_currencies()
 
         assert %Localize.Currency{code: :XST1, digits: 3} =
-                 Money.Currency.Store.get(:XST1)
+                 Store.get(:XST1)
 
         assert %Localize.Currency{code: :XST2, symbol: "S2$"} =
-                 Money.Currency.Store.get(:XST2)
+                 Store.get(:XST2)
       after
         if previous do
           Application.put_env(:ex_money, :custom_currencies, previous)
@@ -390,7 +392,7 @@ defmodule Money.CustomCurrencyTest do
 
         assert log =~ "Failed to register custom currency :USD"
 
-        assert %Localize.Currency{code: :XSTK} = Money.Currency.Store.get(:XSTK)
+        assert %Localize.Currency{code: :XSTK} = Store.get(:XSTK)
       after
         if previous do
           Application.put_env(:ex_money, :custom_currencies, previous)
@@ -428,7 +430,7 @@ defmodule Money.CustomCurrencyTest do
           end)
 
         assert log =~ "Ignoring invalid :custom_currencies entry :not_a_tuple"
-        assert %Localize.Currency{code: :XBAD2} = Money.Currency.Store.get(:XBAD2)
+        assert %Localize.Currency{code: :XBAD2} = Store.get(:XBAD2)
       after
         restore_config(:ex_money, :custom_currencies, previous)
       end
@@ -447,16 +449,16 @@ defmodule Money.CustomCurrencyTest do
 
       try do
         restart_store()
-        assert %Localize.Currency{code: :XRST} = Money.Currency.Store.get(:XRST)
+        assert %Localize.Currency{code: :XRST} = Store.get(:XRST)
 
         # A runtime-only currency (added with new/2, not declared in config)
         # is intentionally not restored after a restart.
         ensure_currency(:XRUN, name: "Runtime Only")
-        assert %Localize.Currency{code: :XRUN} = Money.Currency.Store.get(:XRUN)
+        assert %Localize.Currency{code: :XRUN} = Store.get(:XRUN)
 
         restart_store()
-        assert %Localize.Currency{code: :XRST} = Money.Currency.Store.get(:XRST)
-        assert Money.Currency.Store.get(:XRUN) == nil
+        assert %Localize.Currency{code: :XRST} = Store.get(:XRST)
+        assert Store.get(:XRUN) == nil
       after
         restore_config(:ex_money, :custom_currencies, previous)
         restart_store()
@@ -475,8 +477,8 @@ defmodule Money.CustomCurrencyTest do
         log = capture_log(fn -> restart_store() end)
 
         assert log =~ "Failed to register custom currency :USD"
-        assert %Localize.Currency{code: :XOKK} = Money.Currency.Store.get(:XOKK)
-        assert Money.Currency.Store.get(:USD) == nil
+        assert %Localize.Currency{code: :XOKK} = Store.get(:XOKK)
+        assert Store.get(:USD) == nil
       after
         restore_config(:ex_money, :custom_currencies, previous)
         restart_store()
@@ -484,7 +486,7 @@ defmodule Money.CustomCurrencyTest do
     end
 
     test "the supervisor restarts the store after a crash and re-registers configuration" do
-      original_pid = Process.whereis(Money.Currency.Store)
+      original_pid = Process.whereis(Store)
       ref = Process.monitor(original_pid)
 
       # A runtime-only currency should not survive the crash; a configured one
@@ -497,18 +499,18 @@ defmodule Money.CustomCurrencyTest do
       new_pid = wait_for_store_restart(original_pid)
 
       assert is_pid(new_pid) and new_pid != original_pid
-      assert %Localize.Currency{code: :XCT} = Money.Currency.Store.get(:XCT)
-      assert Money.Currency.Store.get(:XCRA) == nil
+      assert %Localize.Currency{code: :XCT} = Store.get(:XCT)
+      assert Store.get(:XCRA) == nil
     end
 
     test "Money.Currency.new/2 returns an error when the store is not running" do
-      :ok = Supervisor.terminate_child(Money.Supervisor, Money.Currency.Store)
+      :ok = Supervisor.terminate_child(Money.Supervisor, Store)
 
       try do
         assert {:error, %Money.CurrencyNotSavedError{}} =
                  Money.Currency.new(:XDWN, name: "Store Down")
       after
-        {:ok, _} = Supervisor.restart_child(Money.Supervisor, Money.Currency.Store)
+        {:ok, _} = Supervisor.restart_child(Money.Supervisor, Store)
       end
     end
   end

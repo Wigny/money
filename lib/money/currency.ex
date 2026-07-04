@@ -8,6 +8,8 @@ defmodule Money.Currency do
 
   """
 
+  alias Money.Currency.Store
+
   @data_dir :code.priv_dir(:localize) |> :erlang.iolist_to_binary()
   @locale_file Path.join([@data_dir, "localize", "locales", "en.etf"])
 
@@ -124,7 +126,7 @@ defmodule Money.Currency do
     with {:ok, code} <- validate_currency_code(currency_code),
          :ok <- refute_already_defined(code),
          {:ok, validated_options} <- validate_options(code, options) do
-      Money.Currency.Store.put(struct(Localize.Currency, [{:code, code} | validated_options]))
+      Store.put(struct(Localize.Currency, [{:code, code} | validated_options]))
     end
   end
 
@@ -276,7 +278,7 @@ defmodule Money.Currency do
   """
   @spec private_currencies() :: %{atom() => Localize.Currency.t()}
   def private_currencies do
-    Money.Currency.Store.all()
+    Store.all()
   end
 
   @doc """
@@ -289,7 +291,7 @@ defmodule Money.Currency do
   """
   @spec private_currency_codes() :: [atom()]
   def private_currency_codes do
-    Money.Currency.Store.codes()
+    Store.codes()
   end
 
   # ── Currency lookup ───────────────────────────────────────────
@@ -329,19 +331,22 @@ defmodule Money.Currency do
 
       normalized ->
         case Localize.Currency.currency_for_code(normalized) do
-          {:ok, _currency} = success ->
-            success
-
-          {:error, _} ->
-            case Money.Currency.Store.get(normalized) do
-              %Localize.Currency{} = currency ->
-                {:ok, currency}
-
-              nil ->
-                {:error,
-                 {Money.UnknownCurrencyError, "The currency #{inspect(code)} is not known."}}
-            end
+          {:ok, _currency} = success -> success
+          {:error, _} -> custom_currency_for_code(code, normalized)
         end
+    end
+  end
+
+  # Falls back to the custom currency store for a code that is not a known ISO
+  # 4217 currency. `code` is the original (for the error message); `normalized`
+  # is the store lookup key.
+  defp custom_currency_for_code(code, normalized) do
+    case Store.get(normalized) do
+      %Localize.Currency{} = currency ->
+        {:ok, currency}
+
+      nil ->
+        {:error, {Money.UnknownCurrencyError, "The currency #{inspect(code)} is not known."}}
     end
   end
 
@@ -383,7 +388,7 @@ defmodule Money.Currency do
   end
 
   defp refute_already_defined(code) do
-    if code in Money.Currency.Store.codes() do
+    if code in Store.codes() do
       {:error, Money.CurrencyAlreadyDefinedError.exception(currency: code)}
     else
       :ok
@@ -404,30 +409,38 @@ defmodule Money.Currency do
   end
 
   defp validate_options(code, options) do
-    name = options[:name]
+    case options[:name] do
+      nil ->
+        {:error, Money.InvalidCurrencyError.exception("Options must include at least a :name key.")}
 
-    if name do
-      digits = options[:digits] || 2
-
-      validated = [
-        code: code,
-        alt_code: options[:alt_code] || code,
-        name: name,
-        symbol: options[:symbol] || to_string(code),
-        narrow_symbol: options[:narrow_symbol] || options[:symbol],
-        digits: digits,
-        rounding: options[:round_nearest] || 0,
-        cash_digits: options[:cash_digits] || digits,
-        cash_rounding: options[:cash_round_nearest] || options[:round_nearest],
-        iso_digits: digits,
-        tender: options[:tender] || false,
-        count: options[:count] || %{other: name}
-      ]
-
-      {:ok, validated}
-    else
-      {:error, Money.InvalidCurrencyError.exception("Options must include at least a :name key.")}
+      name ->
+        {:ok, currency_options(code, name, options)}
     end
+  end
+
+  # Applies the default for each optional currency field. The defaults are
+  # interdependent (`:narrow_symbol` falls back to `:symbol`, `:cash_digits` to
+  # `:digits`, and so on), so they are expressed as a flat list of `||`
+  # fallbacks rather than a map merge. The cyclomatic complexity is inherent to
+  # this defaulting and does not reflect branching logic.
+  # credo:disable-for-next-line Credo.Check.Refactor.CyclomaticComplexity
+  defp currency_options(code, name, options) do
+    digits = options[:digits] || 2
+
+    [
+      code: code,
+      alt_code: options[:alt_code] || code,
+      name: name,
+      symbol: options[:symbol] || to_string(code),
+      narrow_symbol: options[:narrow_symbol] || options[:symbol],
+      digits: digits,
+      rounding: options[:round_nearest] || 0,
+      cash_digits: options[:cash_digits] || digits,
+      cash_rounding: options[:cash_round_nearest] || options[:round_nearest],
+      iso_digits: digits,
+      tender: options[:tender] || false,
+      count: options[:count] || %{other: name}
+    ]
   end
 
   defp normalize_code(code) when is_atom(code), do: code

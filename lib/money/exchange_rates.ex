@@ -176,8 +176,15 @@ defmodule Money.ExchangeRates do
     end
   end
 
-  # Defines the configuration for the exchange rates mechanism.
   defmodule Config do
+    @moduledoc """
+    The configuration struct for the exchange rates service.
+
+    Holds the resolved retrieval interval, API/callback/cache modules and
+    retriever-specific options used by `Money.ExchangeRates.Retriever`. Built
+    from application configuration by `Money.ExchangeRates.config/0`.
+    """
+
     @type t :: %__MODULE__{
             retrieve_every: non_neg_integer | nil,
             api_module: module() | nil,

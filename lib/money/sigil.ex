@@ -1,4 +1,14 @@
 defmodule Money.Sigil do
+  @moduledoc """
+  Implements the `~M` sigil for constructing `t:Money.t/0` values.
+
+  Import the module to bring the sigil into scope:
+
+      import Money.Sigil
+      ~M[1000]USD
+
+  """
+
   @doc ~S"""
   Implements the sigil `~M` for Money
 
