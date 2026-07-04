@@ -61,9 +61,9 @@ jobs:
         cache-name: cache-elixir-deps
       with:
         path: deps
-        key: ${{ runner.os }}-mix-${{ env.cache-name }}-${{ hashFiles('**/mix.lock') }}
+        key: ${{ runner.os }}-otp${{ matrix.otp }}-elixir${{ matrix.elixir }}-mix-${{ env.cache-name }}-${{ hashFiles('**/mix.lock') }}
         restore-keys: |
-          ${{ runner.os }}-mix-${{ env.cache-name }}-
+          ${{ runner.os }}-otp${{ matrix.otp }}-elixir${{ matrix.elixir }}-mix-${{ env.cache-name }}-
 
     # Step: Define how to cache the `_build` directory. After the first run,
     # this speeds up tests runs a lot. This includes not re-compiling our
@@ -75,10 +75,9 @@ jobs:
         cache-name: cache-compiled-build
       with:
         path: _build
-        key: ${{ runner.os }}-mix-${{ env.cache-name }}-${{ hashFiles('**/mix.lock') }}
+        key: ${{ runner.os }}-otp${{ matrix.otp }}-elixir${{ matrix.elixir }}-mix-${{ env.cache-name }}-${{ hashFiles('**/mix.lock') }}
         restore-keys: |
-          ${{ runner.os }}-mix-${{ env.cache-name }}-
-          ${{ runner.os }}-mix-
+          ${{ runner.os }}-otp${{ matrix.otp }}-elixir${{ matrix.elixir }}-mix-${{ env.cache-name }}-
 
     # Step: Download project dependencies. If unchanged, uses
     # the cached version.
@@ -97,9 +96,25 @@ jobs:
       if: ${{ matrix.lint }}
       run: mix format --check-formatted
 
-    # Step: Execute the tests.
+    # Step: Execute the tests on every matrix entry except the canonical
+    # (lint) one, where they are run under coverage instead (see below).
     - name: Run tests
+      if: ${{ !matrix.lint }}
       run: mix test
+
+    # Step: Run Credo. Only on the canonical (lint) matrix entry — Credo
+    # results are consistent across toolchains so it is enforced once.
+    - name: Run Credo
+      if: ${{ matrix.lint }}
+      run: mix credo --strict
+
+    # Step: Run the tests under coverage and enforce the minimum coverage
+    # threshold configured in coveralls.json. Only on the canonical (lint)
+    # entry; this also runs the full test suite, so the plain `mix test`
+    # step above is skipped there.
+    - name: Run tests with coverage
+      if: ${{ matrix.lint }}
+      run: mix coveralls
 
     # Step: Execute dialyzer. Only on the lint matrix entry —
     # dialyzer output varies across OTP versions and we pin

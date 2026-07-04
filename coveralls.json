@@ -1,0 +1,11 @@
+{
+  "coverage_options": {
+    "minimum_coverage": 80,
+    "treat_no_relevant_lines_as_covered": true
+  },
+  "skip_files": [
+    "test/",
+    "lib/money/parser/combinators.ex",
+    "lib/money/exchange_rates/cache/ets_dets.ex"
+  ]
+}

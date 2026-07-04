@@ -1,6 +1,8 @@
 defmodule Money.ExchangeRates.RetrieverTest do
   use ExUnit.Case, async: false
 
+  import ExUnit.CaptureLog
+
   alias Money.ExchangeRates.Retriever
 
   doctest Retriever
@@ -177,6 +179,63 @@ defmodule Money.ExchangeRates.RetrieverTest do
       assert Retriever.reconfigure(:no_such_retriever, config) ==
                {:error,
                 {Money.ExchangeRateError, "Exchange rate service does not appear to be running"}}
+    end
+  end
+
+  describe "deprecated lifecycle API" do
+    test "start/2 starts a named retriever, restart/1 replaces it and delete/1 stops it" do
+      # These functions link the retriever to the test process; trap exits so
+      # their normal shutdowns arrive as messages rather than killing the test.
+      Process.flag(:trap_exit, true)
+      name = :deprecated_api_retriever
+
+      assert {:ok, pid1} = Retriever.start(name)
+      assert Process.whereis(name) == pid1
+
+      assert {:ok, pid2} = Retriever.restart(name)
+      assert pid2 != pid1
+      assert Process.alive?(pid2)
+
+      assert :ok = Retriever.delete(name)
+      refute Process.whereis(name)
+    end
+  end
+
+  describe "lifecycle messages" do
+    setup do
+      Process.flag(:trap_exit, true)
+      {:ok, pid} = Retriever.start(:"lifecycle_#{System.unique_integer([:positive])}")
+      {:ok, pid: pid}
+    end
+
+    test "handle_info(:stop) stops the retriever normally", %{pid: pid} do
+      ref = Process.monitor(pid)
+      send(pid, :stop)
+      assert_receive {:DOWN, ^ref, :process, ^pid, :normal}
+    end
+
+    test "handle_info({:stop, reason}) stops with the given reason", %{pid: pid} do
+      ref = Process.monitor(pid)
+      send(pid, {:stop, :shutdown})
+      assert_receive {:DOWN, ^ref, :process, ^pid, :shutdown}
+    end
+
+    test "handle_call(:stop) stops via a synchronous call", %{pid: pid} do
+      ref = Process.monitor(pid)
+      assert :ok = GenServer.call(pid, :stop)
+      assert_receive {:DOWN, ^ref, :process, ^pid, :normal}
+    end
+
+    test "an unknown message is logged and the retriever keeps running", %{pid: pid} do
+      log =
+        capture_log(fn ->
+          send(pid, :an_unexpected_message)
+          # Synchronise on the mailbox so the message is processed before we assert.
+          _ = :sys.get_state(pid)
+        end)
+
+      assert log =~ "Invalid message for ExchangeRates.Retriever"
+      assert Process.alive?(pid)
     end
   end
 end
