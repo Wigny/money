@@ -276,8 +276,12 @@ defmodule MoneyTest do
   end
 
   test "multiple a money by something that raises an exception" do
+    # `:invalid` is deliberately an invalid multiplier. Route the call through
+    # apply/3 so the set-theoretic type checker does not flag the intentionally
+    # incompatible argument; the runtime behaviour (raising ArgumentError) is
+    # unchanged.
     assert_raise ArgumentError, ~r/Cannot multiply money by/, fn ->
-      Money.mult!(Money.new(:USD, 100), :invalid)
+      apply(Money, :mult!, [Money.new(:USD, 100), :invalid])
     end
   end
 
