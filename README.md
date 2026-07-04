@@ -840,7 +840,7 @@ The companion package [ex_money_sql](https://hex.pm/packages/ex_money_sql) provi
 ```elixir
 def deps do
   [
-    {:ex_money, "~> 5.0"},
+    {:ex_money, "~> 6.1"},
     ...
   ]
 end

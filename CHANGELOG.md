@@ -4,13 +4,13 @@
 
 ## Money v6.1.0
 
-This is the changelog for Money v6.1.0 released on July 1st, 2026. For older changelogs please consult the release tag on [GitHub](https://github.com/ex-money/money/tags)
+This is the changelog for Money v6.1.0 released on July 4th, 2026. For older changelogs please consult the release tag on [GitHub](https://github.com/ex-money/money/tags)
 
 ### Enhancements
 
 * `Money.ExchangeRates.Retriever` can now be added directly to a supervision tree as a child spec, and multiple named retrievers can run concurrently, each with its own `:api_module`, `:cache_module` and configuration. `Money.ExchangeRates.Supervisor` and the `:auto_start_exchange_rate_service` config key are deprecated but still functional.
 
-* Custom and private currencies declared in the `:custom_currencies` configuration can now be used in compile-time positions such as module attributes, by the `~M` sigil and `Money.new/2`. `Money.validate_currency/2` treats the configuration as a validation source, which is readable at compile time even though the currency store is not yet running.
+* Custom and private currencies declared in the `:custom_currencies` configuration can now be used in compile-time positions such as module attributes, by the `~M` sigil and `Money.new/2`. `Money.validate_currency/2` treats the configuration as a validation source, which is readable at compile time even though the currency store is not yet running. Thanks to @etareduction for the detailed report and collaboration. Closes #195.
 
 * `Money.Application.register_custom_currencies/0` is now documented as an escape hatch for re-applying the `:custom_currencies` configuration to an already-running store, and ignores malformed configuration entries (logging them) instead of raising.
 
@@ -21,6 +21,8 @@ This is the changelog for Money v6.1.0 released on July 1st, 2026. For older cha
 * `Money.ExchangeRates.Retriever.config/1` and `reconfigure/2` now return `{:error, reason}` when the retriever is not running instead of exiting.
 
 * `Money.to_string/2` now formats custom and private currencies registered with `Money.Currency.new/2` by passing the stored `Localize.Currency` struct to the formatter rather than an atom code that `Localize.Currency` cannot resolve. ISO 4217 currencies continue to use locale-aware resolution.
+
+* The `~M` sigil now accepts custom currency codes of 3 to 10 characters, matching what `Money.Currency.new/2` accepts, rather than only the 3 characters of an ISO 4217 code. A custom currency such as `~M[100]QFF1` previously raised `no function clause matching in Money.Sigil.sigil_M/2`.
 
 * The `~M` sigil now raises a clearer error when given an unregistered custom or private currency, distinguishing a currency that is simply not yet registered from one used in a compile-time position (such as a module attribute) where runtime-registered currencies are never available.
 
