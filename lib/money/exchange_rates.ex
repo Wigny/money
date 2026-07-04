@@ -236,7 +236,7 @@ defmodule Money.ExchangeRates do
   @doc """
   Returns historic exchange rates.
 
-  * `date` is a `Date.t` or any date-compatible map or struct (`Calendar.date/0`).
+  * `date` is a `t:Date.t/0` or any date-compatible map or struct (`t:Calendar.date/0`).
 
   Returns:
 
