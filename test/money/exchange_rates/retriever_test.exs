@@ -238,4 +238,53 @@ defmodule Money.ExchangeRates.RetrieverTest do
       assert Process.alive?(pid)
     end
   end
+
+  defp start_named(config) do
+    name = :"cov_#{System.unique_integer([:positive])}"
+    pid = start_supervised!({Retriever, [name: name, config: config]}, id: name)
+    # Synchronise on init having fully run (including any self-sent messages).
+    _ = :sys.get_state(pid)
+    {name, pid}
+  end
+
+  describe "startup scheduling and preload" do
+    test "a retrieval interval logs the init message and fetches on demand" do
+      config = %{
+        Money.ExchangeRates.default_config()
+        | retrieve_every: 60_000,
+          log_levels: %{success: :info, failure: :warning, info: :info}
+      }
+
+      log =
+        capture_log(fn ->
+          {name, _pid} = start_named(config)
+          assert {:ok, %{USD: _}} = Retriever.latest_rates(name)
+        end)
+
+      # Exercises log/3 (with a configured level), log_init_message/1 and seconds/1.
+      assert log =~ "Exchange Rates will be retrieved"
+    end
+
+    # Each preload shape drives a different `schedule_historic_rates_preload/2`
+    # clause during init. Starting the retriever exercises the clause; the
+    # retriever must come up and stay running.
+    for {label, preload} <- [
+          {"a single date", ~D[2017-01-01]},
+          {"a date range", Date.range(~D[2017-01-01], ~D[2017-01-02])},
+          {"a {from, to} tuple", {~D[2017-01-01], ~D[2017-01-02]}},
+          {"an ISO date string", "2017-01-01"},
+          {"an ISO date range string", "2017-01-01..2017-01-02"},
+          {"an unrecognised value (no preload)", :not_a_date}
+        ] do
+      test "preload_historic_rates accepts #{label}" do
+        config = %{
+          Money.ExchangeRates.default_config()
+          | preload_historic_rates: unquote(Macro.escape(preload))
+        }
+
+        {name, _pid} = start_named(config)
+        assert Process.alive?(GenServer.whereis(name))
+      end
+    end
+  end
 end
