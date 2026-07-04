@@ -26,7 +26,7 @@ defmodule Money.ExchangeRatesTest do
 
   describe "latest_rates/0" do
     test "fetches from the cache when rates are cached" do
-      Ets.store_latest_rates(@rates, DateTime.utc_now())
+      Ets.store_latest_rates(Money.ExchangeRates.Retriever, @rates, DateTime.utc_now())
 
       assert ExchangeRates.latest_rates() == {:ok, @rates}
     end
@@ -45,7 +45,7 @@ defmodule Money.ExchangeRatesTest do
     end
 
     test "returns error when retriever stops even if cache has rates" do
-      Ets.store_latest_rates(@rates, DateTime.utc_now())
+      Ets.store_latest_rates(Money.ExchangeRates.Retriever, @rates, DateTime.utc_now())
       stop_supervised(Money.ExchangeRates.Retriever)
 
       assert ExchangeRates.latest_rates() ==
@@ -67,7 +67,7 @@ defmodule Money.ExchangeRatesTest do
 
   describe "historic_rates/1" do
     test "fetches from the cache when rates are cached" do
-      Ets.store_historic_rates(@rates, ~D[2017-01-01])
+      Ets.store_historic_rates(Money.ExchangeRates.Retriever, @rates, ~D[2017-01-01])
 
       assert ExchangeRates.historic_rates(~D[2017-01-01]) == {:ok, @rates}
     end
@@ -85,7 +85,7 @@ defmodule Money.ExchangeRatesTest do
     end
 
     test "returns error when retriever stops even if cache has rates" do
-      Ets.store_historic_rates(@rates, ~D[2017-01-01])
+      Ets.store_historic_rates(Money.ExchangeRates.Retriever, @rates, ~D[2017-01-01])
       stop_supervised(Money.ExchangeRates.Retriever)
 
       assert ExchangeRates.historic_rates(~D[2017-01-01]) ==
@@ -106,7 +106,7 @@ defmodule Money.ExchangeRatesTest do
 
   describe "latest_rates_available?/0" do
     test "returns true when rates are in the cache" do
-      Ets.store_latest_rates(@rates, DateTime.utc_now())
+      Ets.store_latest_rates(Money.ExchangeRates.Retriever, @rates, DateTime.utc_now())
 
       assert ExchangeRates.latest_rates_available?()
     end
@@ -122,7 +122,7 @@ defmodule Money.ExchangeRatesTest do
     end
 
     test "returns false when retriever stops even if cache has rates" do
-      Ets.store_latest_rates(@rates, DateTime.utc_now())
+      Ets.store_latest_rates(Money.ExchangeRates.Retriever, @rates, DateTime.utc_now())
       stop_supervised(Money.ExchangeRates.Retriever)
 
       refute ExchangeRates.latest_rates_available?()
@@ -132,7 +132,7 @@ defmodule Money.ExchangeRatesTest do
   describe "last_updated/0" do
     test "returns the time when rates have been stored" do
       retrieved_at = DateTime.utc_now(:second)
-      Ets.store_latest_rates(@rates, retrieved_at)
+      Ets.store_latest_rates(Money.ExchangeRates.Retriever, @rates, retrieved_at)
 
       assert ExchangeRates.last_updated() == {:ok, retrieved_at}
     end
@@ -147,7 +147,7 @@ defmodule Money.ExchangeRatesTest do
 
     test "returns error when retriever stops even if timestamp is cached" do
       retrieved_at = DateTime.utc_now(:second)
-      Ets.store_latest_rates(@rates, retrieved_at)
+      Ets.store_latest_rates(Money.ExchangeRates.Retriever, @rates, retrieved_at)
       stop_supervised(Money.ExchangeRates.Retriever)
 
       assert ExchangeRates.last_updated() ==

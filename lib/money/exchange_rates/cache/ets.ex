@@ -4,43 +4,37 @@ defmodule Money.ExchangeRates.Cache.Ets do
   :ets
   """
 
-  @behaviour Money.ExchangeRates.Cache
-
-  @ets_table :exchange_rates
-
-  require Logger
-  require Money.ExchangeRates.Cache.EtsDets
-  Money.ExchangeRates.Cache.EtsDets.define_common_functions()
+  use Money.ExchangeRates.Cache.EtsDets
 
   @impl true
-  def init do
-    if :ets.info(@ets_table) == :undefined do
-      :ets.new(@ets_table, [
+  def init(name) do
+    if :ets.info(name) == :undefined do
+      :ets.new(name, [
         :named_table,
         :public,
         read_concurrency: true
       ])
     else
-      @ets_table
+      name
     end
   end
 
   @impl true
-  def terminate do
+  def terminate(_table) do
     :ok
   end
 
-  @spec get(any()) :: any()
-  def get(key) do
-    case :ets.lookup(@ets_table, key) do
-      [{^key, value}] -> value
-      [] -> nil
+  defp get(table, key) do
+    with tid when tid != :undefined <- :ets.whereis(table),
+         [{^key, value}] <- :ets.lookup(tid, key) do
+      value
+    else
+      _ -> nil
     end
   end
 
-  @spec put(any(), any()) :: any()
-  def put(key, value) do
-    :ets.insert(@ets_table, {key, value})
+  defp put(table, key, value) do
+    :ets.insert(table, {key, value})
     value
   end
 end
