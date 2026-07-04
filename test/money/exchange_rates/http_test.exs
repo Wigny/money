@@ -23,7 +23,17 @@ defmodule Money.ExchangeRates.HTTPTest do
 
   setup do
     Application.put_env(:ex_money, :exchange_rates_http_client, HttpMock)
+
+    # The `:etag_cache` table is node-wide and persists across tests. Clear it so
+    # each test starts from an empty cache regardless of execution order;
+    # otherwise a test that caches an etag can make a later test send a
+    # conditional request and receive `:not_modified` instead of the body.
+    if :ets.whereis(:etag_cache) != :undefined do
+      :ets.delete_all_objects(:etag_cache)
+    end
+
     on_exit(fn -> Application.delete_env(:ex_money, :exchange_rates_http_client) end)
+    :ok
   end
 
   describe "get/2" do
