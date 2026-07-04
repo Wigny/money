@@ -39,6 +39,11 @@ defmodule Money.CustomCurrencyTest do
     Enum.reduce_while(1..200, nil, fn _iteration, _acc ->
       case Process.whereis(Store) do
         pid when is_pid(pid) and pid != old_pid ->
+          # A GenServer registers its name *before* `init/1` runs, and it is
+          # `init/1` that repopulates `:persistent_term`. Block on a synchronous
+          # call so initialisation has completed — and the stale pre-crash
+          # persistent term has been overwritten — before we read from the store.
+          _ = :sys.get_state(pid)
           {:halt, pid}
 
         _not_yet ->
