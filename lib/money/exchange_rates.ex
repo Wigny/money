@@ -230,6 +230,10 @@ defmodule Money.ExchangeRates do
   @doc """
   Returns the latest exchange rates.
 
+  * `retriever` is the name or pid of a `Money.ExchangeRates.Retriever`
+    process. Defaults to the default retriever, and only needs to be
+    supplied when [running multiple named retrievers](`Money.ExchangeRates.Retriever`).
+
   Returns:
 
   * `{:ok, rates}` if exchange rates are successfully retrieved. `rates` is a map of
@@ -239,52 +243,104 @@ defmodule Money.ExchangeRates do
 
   This function looks up the latest exchange rates in an ETS table
   called `:exchange_rates`. The actual retrieval of rates is requested
-  through `Money.ExchangeRates.Retriever.latest_rates/0`.
+  through `Money.ExchangeRates.Retriever.latest_rates/1`.
 
   """
-  @spec latest_rates() :: {:ok, map()} | {:error, {Exception.t(), binary}}
-  def latest_rates do
-    Retriever.latest_rates()
+  @spec latest_rates(GenServer.server()) :: {:ok, map()} | {:error, {Exception.t(), binary}}
+  def latest_rates(retriever \\ Retriever) do
+    Retriever.latest_rates(retriever)
+  end
+
+  @spec historic_rates(Calendar.date()) :: {:ok, map()} | {:error, {Exception.t(), binary}}
+  @spec historic_rates(Date.Range.t()) ::
+          [{:ok, map()} | {:error, {Exception.t(), binary}}] | {:error, {Exception.t(), binary}}
+  def historic_rates(date_or_range) when is_map(date_or_range) do
+    Retriever.historic_rates(date_or_range)
+  end
+
+  @spec historic_rates(Calendar.date(), Calendar.date()) ::
+          [{:ok, map()} | {:error, {Exception.t(), binary}}] | {:error, {Exception.t(), binary}}
+  def historic_rates(from, to) when is_map(from) and is_map(to) do
+    Retriever.historic_rates(from, to)
   end
 
   @doc """
-  Returns historic exchange rates.
+  Returns historic exchange rates sourced from a specific named retriever.
 
-  * `date` is a `t:Date.t/0` or any date-compatible map or struct (`t:Calendar.date/0`).
+  * `retriever` is the name or pid of a `Money.ExchangeRates.Retriever`
+    process, as used when [running multiple named retrievers](`Money.ExchangeRates.Retriever`).
+
+  * `date_or_range` is either a `t:Date.t/0` or any date-compatible map or
+    struct (`t:Calendar.date/0`), or a `Date.Range.t` specifying a range
+    of dates for which rates are returned.
 
   Returns:
 
-  * `{:ok, rates}` if exchange rates are successfully retrieved. `rates` is a map of
-    exchange rates.
+  * `{:ok, rates}` or `{:error, reason}` if `date_or_range` is a single
+    date. `rates` is a map of exchange rates.
+
+  * a list of `{:ok, rates}` or `{:error, reason}` tuples, one for each
+    date in the range, if `date_or_range` is a `Date.Range.t`.
+
+  **Note:** All dates are expected to be in the Calendar.ISO calendar.
+
+  """
+  @spec historic_rates(GenServer.server(), Calendar.date()) ::
+          {:ok, map()} | {:error, {Exception.t(), binary}}
+  @spec historic_rates(GenServer.server(), Date.Range.t()) ::
+          [{:ok, map()} | {:error, {Exception.t(), binary}}] | {:error, {Exception.t(), binary}}
+  def historic_rates(retriever, date_or_range) when is_map(date_or_range) do
+    Retriever.historic_rates(retriever, date_or_range)
+  end
+
+  @doc """
+  Returns historic exchange rates for a range of dates sourced from a
+  specific named retriever.
+
+  * `retriever` is the name or pid of a `Money.ExchangeRates.Retriever`
+    process, as used when [running multiple named retrievers](`Money.ExchangeRates.Retriever`).
+
+  * `from` and `to` are each a `t:Date.t/0` or any date-compatible map or
+    struct (`t:Calendar.date/0`), specifying the `from`..`to` range of
+    dates for which rates are returned.
+
+  Returns:
+
+  * `{:ok, rates}` or a list of such tuples if exchange rates are
+    successfully retrieved. `rates` is a map of exchange rates.
 
   * `{:error, reason}` if no exchange rates can be returned.
 
   **Note:** All dates are expected to be in the Calendar.ISO calendar.
 
-  This function looks up the historic exchange rates in an ETS table
-  called `:exchange_rates`. The actual retrieval of rates is requested
-  through `Money.ExchangeRates.Retriever.historic_rates/1`.
-
   """
-  @spec historic_rates(Calendar.date()) :: {:ok, map()} | {:error, {Exception.t(), binary}}
-  @spec historic_rates(Date.Range.t()) ::
+  @spec historic_rates(GenServer.server(), Calendar.date(), Calendar.date()) ::
           [{:ok, map()} | {:error, {Exception.t(), binary}}] | {:error, {Exception.t(), binary}}
-  def historic_rates(date) do
-    Retriever.historic_rates(date)
+  def historic_rates(retriever, from, to) when is_map(from) and is_map(to) do
+    Retriever.historic_rates(retriever, from, to)
   end
 
   @doc """
   Returns `true` if the latest exchange rates are available
   and `false` otherwise.
+
+  * `retriever` is the name or pid of a `Money.ExchangeRates.Retriever`
+    process. Defaults to the default retriever, and only needs to be
+    supplied when [running multiple named retrievers](`Money.ExchangeRates.Retriever`).
+
   """
-  @spec latest_rates_available?() :: boolean
-  def latest_rates_available? do
-    Retriever.latest_rates_available?()
+  @spec latest_rates_available?(GenServer.server()) :: boolean
+  def latest_rates_available?(retriever \\ Retriever) do
+    Retriever.latest_rates_available?(retriever)
   end
 
   @doc """
   Returns the timestamp of the last successful retrieval of exchange rates or
   `{:error, reason}` if no timestamp is known.
+
+  * `retriever` is the name or pid of a `Money.ExchangeRates.Retriever`
+    process. Defaults to the default retriever, and only needs to be
+    supplied when [running multiple named retrievers](`Money.ExchangeRates.Retriever`).
 
   ## Example
 
@@ -295,8 +351,8 @@ defmodule Money.ExchangeRates do
         utc_offset: 0, year: 2016, zone_abbr: "UTC"}}
 
   """
-  @spec last_updated() :: {:ok, DateTime.t()} | {:error, {Exception.t(), binary}}
-  def last_updated do
-    Retriever.last_updated()
+  @spec last_updated(GenServer.server()) :: {:ok, DateTime.t()} | {:error, {Exception.t(), binary}}
+  def last_updated(retriever \\ Retriever) do
+    Retriever.last_updated(retriever)
   end
 end

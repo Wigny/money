@@ -65,6 +65,21 @@ defmodule Money.ExchangeRatesTest do
     end
   end
 
+  describe "latest_rates/1" do
+    test "queries the given retriever process" do
+      name = start_named_retriever()
+
+      assert ExchangeRates.latest_rates(name) ==
+               {:ok, %{AUD: Decimal.new("0.7"), EUR: Decimal.new("1.2"), USD: Decimal.new(1)}}
+
+      stop_supervised(name)
+
+      assert ExchangeRates.latest_rates(name) ==
+               {:error,
+                {Money.ExchangeRateError, "Exchange rate service does not appear to be running"}}
+    end
+  end
+
   describe "historic_rates/1" do
     test "fetches from the cache when rates are cached" do
       Ets.store_historic_rates(@rates, ~D[2017-01-01])
@@ -104,6 +119,37 @@ defmodule Money.ExchangeRatesTest do
     end
   end
 
+  describe "historic_rates/2 with a retriever" do
+    test "queries the given retriever process" do
+      name = start_named_retriever()
+
+      assert ExchangeRates.historic_rates(name, ~D[2017-01-01]) == {:ok, @rates}
+
+      stop_supervised(name)
+
+      assert ExchangeRates.historic_rates(name, ~D[2017-01-01]) ==
+               {:error,
+                {Money.ExchangeRateError, "Exchange rate service does not appear to be running"}}
+    end
+  end
+
+  describe "historic_rates/3 with a retriever" do
+    test "queries the given retriever process" do
+      name = start_named_retriever()
+
+      assert ExchangeRates.historic_rates(name, ~D[2017-01-01], ~D[2017-01-02]) == [
+               {:ok, @rates},
+               {:ok, %{AUD: Decimal.new("0.4"), EUR: Decimal.new("0.9"), USD: Decimal.new("0.6")}}
+             ]
+
+      stop_supervised(name)
+
+      assert ExchangeRates.historic_rates(name, ~D[2017-01-01], ~D[2017-01-02]) ==
+               {:error,
+                {Money.ExchangeRateError, "Exchange rate service does not appear to be running"}}
+    end
+  end
+
   describe "latest_rates_available?/0" do
     test "returns true when rates are in the cache" do
       Ets.store_latest_rates(@rates, DateTime.utc_now())
@@ -129,6 +175,20 @@ defmodule Money.ExchangeRatesTest do
     end
   end
 
+  describe "latest_rates_available?/1" do
+    test "queries the given retriever process" do
+      name = start_named_retriever()
+
+      refute ExchangeRates.latest_rates_available?(name)
+
+      {:ok, _rates} = ExchangeRates.latest_rates(name)
+      assert ExchangeRates.latest_rates_available?(name)
+
+      stop_supervised(name)
+      refute ExchangeRates.latest_rates_available?(name)
+    end
+  end
+
   describe "last_updated/0" do
     test "returns the time when rates have been stored" do
       retrieved_at = DateTime.utc_now(:second)
@@ -151,6 +211,24 @@ defmodule Money.ExchangeRatesTest do
       stop_supervised(Money.ExchangeRates.Retriever)
 
       assert ExchangeRates.last_updated() ==
+               {:error,
+                {Money.ExchangeRateError, "Exchange rate service does not appear to be running"}}
+    end
+  end
+
+  describe "last_updated/1" do
+    test "queries the given retriever process" do
+      name = start_named_retriever()
+
+      assert ExchangeRates.last_updated(name) ==
+               {:error, {Money.ExchangeRateError, "Last updated date is not known"}}
+
+      {:ok, _rates} = ExchangeRates.latest_rates(name)
+      assert {:ok, %DateTime{}} = ExchangeRates.last_updated(name)
+
+      stop_supervised(name)
+
+      assert ExchangeRates.last_updated(name) ==
                {:error,
                 {Money.ExchangeRateError, "Exchange rate service does not appear to be running"}}
     end
@@ -190,6 +268,12 @@ defmodule Money.ExchangeRatesTest do
         end
       end
     end
+  end
+
+  defp start_named_retriever do
+    name = :"exchange_rates_test_#{System.unique_integer([:positive])}"
+    start_supervised!({Money.ExchangeRates.Retriever, [name: name]}, id: name)
+    name
   end
 
   defp trace_module(pid, module) do
