@@ -290,10 +290,28 @@ defmodule Money do
             {:ok, locale}
 
           {:error, exception} ->
-            {:error,
-             {Money.Invalid, "The :locale option is invalid. " <> Exception.message(exception)}}
+            {:error, {Money.InvalidLocaleError, Exception.message(exception)}}
         end
     end
+  end
+
+  # Normalizes errors from `Localize` functions — which return the exception
+  # struct itself — to the `{:error, {module, message}}` convention used
+  # throughout Money, so callers can match a single error shape. Locale and
+  # currency errors are mapped to the Money exception modules, which accept a
+  # message binary and can therefore be re-raised by the bang functions.
+  # Callers pass only `{:error, _}` tuples here (never success values) so
+  # that dialyzer keeps each caller's success typing precise.
+  defp normalize_error({:error, %Localize.InvalidLocaleError{} = exception}) do
+    {:error, {Money.InvalidLocaleError, Exception.message(exception)}}
+  end
+
+  defp normalize_error({:error, %Localize.UnknownCurrencyError{} = exception}) do
+    {:error, {Money.UnknownCurrencyError, Exception.message(exception)}}
+  end
+
+  defp normalize_error({:error, _other} = error) do
+    error
   end
 
   defp validate_not_nan_or_inf(%Decimal{} = amount) do
@@ -615,11 +633,17 @@ defmodule Money do
   def parse(string, options \\ []) do
     case Money.Parser.money_parser(String.trim(string)) do
       {:ok, result, "", _, _, _} ->
-        result
-        |> Enum.map(fn {k, v} -> {k, String.trim_trailing(v)} end)
-        |> Keyword.put_new(:currency, Keyword.get(options, :default_currency))
-        |> Map.new()
-        |> maybe_create_money(string, options)
+        money_or_error =
+          result
+          |> Enum.map(fn {k, v} -> {k, String.trim_trailing(v)} end)
+          |> Keyword.put_new(:currency, Keyword.get(options, :default_currency))
+          |> Map.new()
+          |> maybe_create_money(string, options)
+
+        case money_or_error do
+          {:error, _} = error -> normalize_error(error)
+          money -> money
+        end
 
       _ ->
         {:error, {Money.ParseError, "Could not parse #{inspect(string)}."}}
@@ -812,14 +836,19 @@ defmodule Money do
     default_options = [currency: currency_for_format(money.currency)]
     format_options = Map.get(money, :format_options, [])
 
-    options =
-      default_options
-      |> Keyword.merge(format_options)
-      |> Keyword.merge(options)
-      |> maybe_no_fractional_digits(money)
-      |> translate_format_option()
+    with {:ok, _locale} <- validate_locale_option(options) do
+      options =
+        default_options
+        |> Keyword.merge(format_options)
+        |> Keyword.merge(options)
+        |> maybe_no_fractional_digits(money)
+        |> translate_format_option()
 
-    Localize.Number.to_string(money.amount, options)
+      case Localize.Number.to_string(money.amount, options) do
+        {:error, _} = error -> normalize_error(error)
+        ok -> ok
+      end
+    end
   end
 
   def to_string(%Money{} = money, %Localize.Number.Format.Options{} = options) do
@@ -832,7 +861,10 @@ defmodule Money do
       |> Map.put(:currency, currency_for_format(money.currency))
       |> maybe_no_fractional_digits(money)
 
-    Localize.Number.to_string(money.amount, options)
+    case Localize.Number.to_string(money.amount, options) do
+      {:error, _} = error -> normalize_error(error)
+      ok -> ok
+    end
   end
 
   # Custom and private currencies are registered at runtime in
@@ -2416,9 +2448,15 @@ defmodule Money do
   def localize(%Money{} = money, options \\ []) do
     locale = Keyword.get(options, :locale, Localize.get_locale())
 
-    with {:ok, locale} <- Localize.validate_locale(locale),
-         {:ok, currency} <- Localize.Currency.currency_from_locale(locale) do
-      to_currency(money, currency)
+    result =
+      with {:ok, locale} <- Localize.validate_locale(locale),
+           {:ok, currency} <- Localize.Currency.currency_from_locale(locale) do
+        to_currency(money, currency)
+      end
+
+    case result do
+      {:error, _} = error -> normalize_error(error)
+      ok -> ok
     end
   end
 

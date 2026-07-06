@@ -105,15 +105,49 @@ defmodule Money.RobustnessTest do
 
   describe "new/3 locale error surfacing" do
     test "an invalid :locale option is reported as the cause" do
-      assert {:error, {Money.Invalid, message}} =
+      assert {:error, {Money.InvalidLocaleError, message}} =
                Money.new(:USD, "1.234,56", locale: "not a locale!!")
 
-      assert message =~ ":locale option is invalid"
       assert message =~ "not a locale!!"
+      assert message =~ "not valid"
     end
 
     test "a valid :locale option still parses a localized amount" do
       assert Money.new(:USD, "1.234,56", locale: "de") == Money.new(:USD, "1234.56")
+    end
+  end
+
+  describe "normalized locale error shape across public APIs" do
+    # Every public function returns errors as `{:error, {module, message}}`
+    # so callers can match a single error shape; Localize's bare exception
+    # structs are normalized at the boundary.
+    @bad_locale "not a locale!!"
+
+    test "to_string/2 returns the normalized error tuple" do
+      assert {:error, {Money.InvalidLocaleError, message}} =
+               Money.to_string(Money.new(:USD, 100), locale: @bad_locale)
+
+      assert message =~ @bad_locale
+    end
+
+    test "to_string!/2 raises Money.InvalidLocaleError" do
+      assert_raise Money.InvalidLocaleError, ~r/not a locale!!/, fn ->
+        Money.to_string!(Money.new(:USD, 100), locale: @bad_locale)
+      end
+    end
+
+    test "parse/2 returns the normalized error tuple" do
+      assert {:error, {Money.InvalidLocaleError, message}} =
+               Money.parse("100", locale: @bad_locale)
+
+      assert message =~ @bad_locale
+    end
+
+    test "localize/2 returns the normalized error tuple" do
+      assert {:error, {Money.InvalidLocaleError, message}} =
+               Money.localize(Money.new(:USD, 100), locale: @bad_locale)
+
+      assert message =~ @bad_locale
     end
   end
 

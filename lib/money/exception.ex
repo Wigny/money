@@ -40,6 +40,14 @@ defmodule Money.InvalidCurrencyError do
   end
 end
 
+defmodule Money.InvalidLocaleError do
+  defexception [:message]
+
+  def exception(message) do
+    %__MODULE__{message: message}
+  end
+end
+
 defmodule Money.FormatError do
   defexception [:message]
 
