@@ -302,4 +302,123 @@ defmodule MoneySubscriptionTest do
              {:error,
               {Subscription.NoCurrentPlan, "The plan is not current for #{inspect(start_date)}"}}
   end
+
+  describe "pending plan management" do
+    test "cancel_pending_plan/2 removes a pending plan" do
+      p1 = Plan.new!(Money.new(:USD, 100), :month, 1)
+      p2 = Plan.new!(Money.new(:USD, 200), :month, 1)
+
+      subscription = Subscription.new!(p1, ~D[2026-01-01])
+      changed = Subscription.change_plan!(subscription, p2, today: ~D[2026-01-15])
+
+      assert Subscription.plan_pending?(changed, today: ~D[2026-01-15])
+
+      cancelled = Subscription.cancel_pending_plan(changed, today: ~D[2026-01-15])
+      assert length(cancelled.plans) == 1
+      refute Subscription.plan_pending?(cancelled, today: ~D[2026-01-15])
+    end
+
+    test "cancel_pending_plan/2 is a no-op when no plan is pending" do
+      p1 = Plan.new!(Money.new(:USD, 100), :month, 1)
+      subscription = Subscription.new!(p1, ~D[2026-01-01])
+
+      assert Subscription.cancel_pending_plan(subscription, today: ~D[2026-01-15]) ==
+               subscription
+    end
+
+    test "change_plan!/3 raises when a plan is already pending" do
+      p1 = Plan.new!(Money.new(:USD, 100), :month, 1)
+      p2 = Plan.new!(Money.new(:USD, 200), :month, 1)
+      p3 = Plan.new!(Money.new(:USD, 300), :month, 1)
+
+      subscription =
+        Subscription.new!(p1, ~D[2026-01-01])
+        |> Subscription.change_plan!(p2, today: ~D[2026-01-15])
+
+      assert_raise Money.Subscription.PlanPending, fn ->
+        Subscription.change_plan!(subscription, p3, today: ~D[2026-01-15])
+      end
+    end
+  end
+
+  describe "current_plan_start_date/1" do
+    test "returns nil when the subscription has no plans" do
+      assert Subscription.current_plan_start_date(%{plans: []}) == nil
+    end
+  end
+
+  describe "change_plan effective option variants" do
+    test "effective: :immediately prorates from today" do
+      p1 = %{interval: :day, interval_count: 30, price: Money.new(:USD, 100)}
+      p2 = %{interval: :day, interval_count: 30, price: Money.new(:USD, 200)}
+
+      {:ok, immediate} =
+        Subscription.change_plan(
+          p1,
+          p2,
+          current_interval_started: ~D[2026-01-01],
+          effective: :immediately,
+          today: ~D[2026-01-16]
+        )
+
+      {:ok, dated} =
+        Subscription.change_plan(
+          p1,
+          p2,
+          current_interval_started: ~D[2026-01-01],
+          effective: ~D[2026-01-16],
+          today: ~D[2026-01-16]
+        )
+
+      assert immediate == dated
+    end
+
+    test "a missing required option raises ArgumentError" do
+      p1 = %{interval: :day, interval_count: 30, price: Money.new(:USD, 100)}
+      p2 = %{interval: :day, interval_count: 30, price: Money.new(:USD, 200)}
+
+      assert_raise ArgumentError, ~r/change_plan requires the option/, fn ->
+        Subscription.change_plan(p1, p2, effective: ~D[2026-01-16])
+      end
+    end
+  end
+
+  describe "next_interval_starts/3 interval variants" do
+    test "week intervals advance by seven days per count" do
+      assert Subscription.next_interval_starts(
+               %{interval: :week, interval_count: 2},
+               ~D[2026-01-01]
+             ) == ~D[2026-01-15]
+    end
+
+    test "year intervals advance the year by the count" do
+      assert Subscription.next_interval_starts(
+               %{interval: :year, interval_count: 3},
+               ~D[2026-01-01]
+             ) == ~D[2029-01-01]
+    end
+  end
+
+  describe "Plan constructor and formatting error paths" do
+    # `:fortnight` and the integer price are deliberately invalid. Route the
+    # calls through apply/3 so the set-theoretic type checker does not flag
+    # the intentionally incompatible arguments.
+    test "Plan.new!/3 raises for an invalid plan definition" do
+      assert_raise Money.Invalid, fn ->
+        apply(Plan, :new!, [Money.new(:USD, 100), :fortnight])
+      end
+    end
+
+    test "Plan.new/3 returns an error for a non-money price" do
+      assert {:error, {Money.Invalid, _}} = apply(Plan, :new, [100, :month])
+    end
+
+    test "Plan.to_string!/2 raises when the plan cannot be formatted" do
+      plan = Plan.new!(Money.new(:USD, 100), :month)
+
+      assert_raise Localize.InvalidLocaleError, fn ->
+        Plan.to_string!(plan, locale: "not a locale!!")
+      end
+    end
+  end
 end

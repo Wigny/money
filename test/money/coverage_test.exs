@@ -97,7 +97,9 @@ defmodule Money.CoverageTest do
   describe "reduce/1 (deprecated) delegates to normalize/1" do
     test "strips trailing zeroes like normalize/1" do
       money = Money.new(:USD, "1.00")
-      assert Money.reduce(money) == Money.normalize(money)
+      # apply/3 avoids the compile-time deprecation warning; exercising the
+      # deprecated function is the point of this test.
+      assert apply(Money, :reduce, [money]) == Money.normalize(money)
     end
   end
 
@@ -146,7 +148,8 @@ defmodule Money.CoverageTest do
       plan = Plan.new!(Money.new(:USD, 100), :month)
 
       assert_raise Money.Subscription.DateError, fn ->
-        Subscription.new!(plan, :not_a_date)
+        # apply/3: :not_a_date is deliberately invalid for the type checker.
+        apply(Subscription, :new!, [plan, :not_a_date])
       end
     end
 

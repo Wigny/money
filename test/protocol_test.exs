@@ -34,6 +34,14 @@ defmodule Money.Protocol.Test do
         assert result =~ "Money.new("
         assert result =~ "100"
       end
+
+      test "a token-shaped currency unknown to DigitalToken inspects with the raw token id" do
+        # 9-byte binaries are treated as digital token ids; an id that
+        # DigitalToken cannot resolve falls back to the id itself.
+        money = %Money{currency: "ZZZZZZZZZ", amount: Decimal.new(1), format_options: []}
+
+        assert inspect(money) == ~s|Money.new("ZZZZZZZZZ", "1")|
+      end
     end
   end
 end

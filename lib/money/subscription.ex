@@ -1019,7 +1019,7 @@ defmodule Money.Subscription do
 
   @dialyzer {:nowarn_function, raise_change_plan_options_error: 1}
   defp raise_change_plan_options_error(opt) do
-    raise ArgumentError, "change_plan requires the the option #{inspect(opt)}"
+    raise ArgumentError, "change_plan requires the option #{inspect(opt)}"
   end
 
   defp preferred_day(options) do

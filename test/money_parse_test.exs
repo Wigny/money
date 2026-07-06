@@ -94,6 +94,10 @@ defmodule MoneyTest.Parse do
       assert Money.parse("100", locale: "zh-Hans-u-rg-uszzzz-cu-eur") == Money.new(:EUR, 100)
     end
 
+    test "accounting format negates an already-negative amount" do
+      assert Money.parse("($-127.54)", locale: "en") == Money.new(:USD, "127.54")
+    end
+
     test "parse with negative numbers" do
       assert Money.parse("-127,54 €", locale: "fr") == Money.new(:EUR, "-127.54")
       assert Money.parse("-127,54€", locale: "fr") == Money.new(:EUR, "-127.54")

@@ -156,7 +156,31 @@ defmodule Money.ExchangeRatesTest do
     end
   end
 
+  # An api module that does not export the optional init/1 callback.
+  defmodule NoInitApi do
+    def get_latest_rates(_config), do: {:error, "not implemented"}
+    def get_historic_rates(_date, _config), do: {:error, "not implemented"}
+  end
+
   describe "config/0" do
+    test "uses the default configuration when the api module has no init/1" do
+      previous = Application.get_env(:ex_money, :api_module)
+      Application.put_env(:ex_money, :api_module, NoInitApi)
+
+      try do
+        config = Money.ExchangeRates.config()
+
+        assert config.api_module == NoInitApi
+        assert config.retriever_options == nil
+      after
+        if previous do
+          Application.put_env(:ex_money, :api_module, previous)
+        else
+          Application.delete_env(:ex_money, :api_module)
+        end
+      end
+    end
+
     test "runs the api module's init/1 to populate retriever_options even when the module is not loaded (issue #202)" do
       # Reproduces https://github.com/ex-money/money/issues/202: during
       # application startup the API module is referenced only as a config atom
