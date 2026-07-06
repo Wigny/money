@@ -93,7 +93,13 @@ defmodule Money.Subscription.Plan do
 
   Takes the same arguments as `Money.Subscription.Plan.new/3`.
 
-  ##@ Example
+  ### Returns
+
+  * a `t:Money.Subscription.Plan.t/0`, or
+
+  * raises an exception if the arguments are invalid.
+
+  ### Examples
 
       iex> Money.Subscription.Plan.new! Money.new(:USD, 100), :day, 30
       %Money.Subscription.Plan{

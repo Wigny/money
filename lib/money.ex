@@ -138,6 +138,12 @@ defmodule Money do
   Note that the `currency_code` and `amount` arguments can be supplied in
   either order,
 
+  ### Returns
+
+  * a `t:Money.t/0`, or
+
+  * `{:error, {exception, message}}` if the currency or amount is invalid.
+
   ### Examples
 
       iex> Money.new(:USD, 100)
@@ -345,6 +351,12 @@ defmodule Money do
 
   * `options` is a keyword list of options. See `Money.new/3`.
 
+  ### Returns
+
+  * a `t:Money.t/0`, or
+
+  * raises an exception if the currency or amount is invalid.
+
   ### Examples
 
       Money.new!(:XYZZ, 100)
@@ -408,6 +420,13 @@ defmodule Money do
 
   * `options` is a keyword list of options passed
     to `Money.new/3`. The default is `[]`.
+
+  ### Returns
+
+  * a `t:Money.t/0`, or
+
+  * `{:error, {exception, message}}` if the currency is invalid or the
+    amount has more than 15 digits of precision.
 
   ### Examples
 
@@ -473,6 +492,13 @@ defmodule Money do
   * `options` is a keyword list of options passed
     to `Money.new/3`. The default is `[]`.
 
+  ### Returns
+
+  * a `t:Money.t/0`, or
+
+  * raises an exception if the currency is invalid or the amount has
+    more than 15 digits of precision.
+
   ### Examples
 
       iex> Money.from_float!(:USD, 1.234)
@@ -504,6 +530,10 @@ defmodule Money do
   * `options` is a keyword list of options. These
     options are used when calling `Money.to_string/2`.
     The default is `[]`.
+
+  ### Returns
+
+  * a `t:Money.t/0` with the given format options applied.
 
   """
 
@@ -561,7 +591,7 @@ defmodule Money do
     indentified in the parsed string. The default is `nil`
     which means that the default currency associated with
     the `:locale` option will be used. If `false` then the
-    currency assocated with the `:locale` option will not be
+    currency associated with the `:locale` option will not be
     used and an error will be returned if there is no currency
     in the string being parsed.
 
@@ -822,7 +852,7 @@ defmodule Money do
   def to_string(money, options \\ [])
 
   def to_string(%Money{currency: {:token, _token_id}}, options) when is_list(options) do
-    {:error, {Money.FormatError, "Formatting of digital tokens is not current supported"}}
+    {:error, {Money.FormatError, "Formatting of digital tokens is not currently supported"}}
   end
 
   def to_string(%Money{currency: token_id} = money, options)
@@ -944,6 +974,13 @@ defmodule Money do
 
   * Any other options are passed to `Localize.Number.to_string/2`.
 
+  ### Returns
+
+  * a formatted string, or
+
+  * raises an exception if the money cannot be formatted (for example
+    when an option such as `:locale` or `:format` is invalid).
+
   ### Examples
 
       iex> Money.to_string! Money.new(:USD, 1234)
@@ -982,7 +1019,7 @@ defmodule Money do
 
   * a `Decimal.t`.
 
-  ## Example
+  ### Examples
 
       iex> m = Money.new("USD", 100)
       iex> Money.to_decimal(m)
@@ -1007,7 +1044,7 @@ defmodule Money do
 
   * the currency code as an `t:atom`.
 
-  ## Example
+  ### Examples
 
       iex> m = Money.new("USD", 100)
       iex> Money.to_currency_code(m)
@@ -1033,7 +1070,7 @@ defmodule Money do
 
   * a `t:Money.t/0`.
 
-  ## Example
+  ### Examples
 
       iex> m = Money.new("USD", -100)
       iex> Money.abs(m)
@@ -1059,7 +1096,7 @@ defmodule Money do
 
   * `{:error, reason}`.
 
-  ## Example
+  ### Examples
 
       iex> Money.add Money.new(:USD, 200), Money.new(:USD, 100)
       {:ok, Money.new(:USD, 300)}
@@ -1136,7 +1173,7 @@ defmodule Money do
 
   * `{:error, reason}`.
 
-  ## Example
+  ### Examples
 
       iex> Money.sub Money.new(:USD, 200), Money.new(:USD, 100)
       {:ok, Money.new(:USD, 100)}
@@ -1211,7 +1248,7 @@ defmodule Money do
 
   * `{:error, reason}`
 
-  ## Example
+  ### Examples
 
       iex> Money.mult(Money.new(:USD, 200), 2)
       {:ok, Money.new(:USD, 400)}
@@ -1291,7 +1328,7 @@ defmodule Money do
 
   * `{:error, reason}`
 
-  ## Example
+  ### Examples
 
       iex> Money.div Money.new(:USD, 200), 2
       {:ok, Money.new(:USD, 100)}
@@ -1368,7 +1405,7 @@ defmodule Money do
 
   * `{:error, reason}`
 
-  ## Example
+  ### Examples
 
       iex> Money.min(Money.new(:USD, 200), Money.new(:USD, 300))
       {:ok, Money.new(:USD, 200)}
@@ -1411,7 +1448,7 @@ defmodule Money do
 
   * `{:error, reason}`.
 
-  ## Example
+  ### Examples
 
       iex> Money.max(Money.new(:USD, 200), Money.new(:USD, 300))
       {:ok, Money.new(:USD, 300)}
@@ -1455,7 +1492,7 @@ defmodule Money do
 
   * raises an exception.
 
-  ## Example
+  ### Examples
 
       iex> Money.min!(Money.new(:USD, 200), Money.new(:USD, 300))
       Money.new(:USD, 200)
@@ -1499,7 +1536,7 @@ defmodule Money do
 
   * raises an exception.
 
-  ## Example
+  ### Examples
 
       iex> Money.max!(Money.new(:USD, 200), Money.new(:USD, 300))
       Money.new(:USD, 300)
@@ -1531,12 +1568,12 @@ defmodule Money do
   Clamps a `t:Money.t/0` to be in the range of `minimum`
   to `maximum`.
 
-  #### Arguments
+  ### Arguments
 
   * `money`, `minimum` and `maximum` are any valid `t:Money.t/0` types returned
     by `Money.new/2`. They should be of the same currency.
 
-  #### Returns
+  ### Returns
 
   * `{:ok, money]` where `money` is clamped to the `minimum` or `maximum` if required.
       * If `money` is within the range `minimum..maximum` then `money` is returned unchanged.
@@ -1545,7 +1582,7 @@ defmodule Money do
 
   * or `{:error, reason}`.
 
-  #### Examples
+  ### Examples
 
       iex> Money.clamp(Money.new(:USD, 100), Money.new(:USD, 50), Money.new(:USD, 200))
       {:ok, Money.new(:USD, 100)}
@@ -1592,12 +1629,12 @@ defmodule Money do
   Clamps a `t:Money.t/0` to be in the range of `minimum`
   to `maximum` or raises an exception.
 
-  #### Arguments
+  ### Arguments
 
   * `money`, `minimum` and `maximum` are any valid `t:Money.t/0` types returned
     by `Money.new/2`. They should be of the same currency.
 
-  #### Returns
+  ### Returns
 
   * `money` where `money` is clamped to the `minimum` or `maximum` if required.
       * If `money` is within the range `minimum..maximum` then `money` is returned unchanged.
@@ -1606,7 +1643,7 @@ defmodule Money do
 
   * or `{:error, reason}`.
 
-  #### Examples
+  ### Examples
 
       iex> Money.clamp!(Money.new(:USD, 100), Money.new(:USD, 50), Money.new(:USD, 200))
       Money.new(:USD, 100)
@@ -1651,16 +1688,16 @@ defmodule Money do
   Returns a boolean indicating if the `t:Money.t/0` is in the
   range `minimum..maximum`.
 
-  #### Arguments
+  ### Arguments
 
   * `money`, `minimum` and `maximum` are any valid `t:Money.t/0` types returned
     by `Money.new/2`. They should be of the same currency.
 
-  #### Returns
+  ### Returns
 
   * `true` or `false`.
 
-  #### Examples
+  ### Examples
 
       iex> Money.within?(Money.new(:USD, 100), Money.new(:USD, 50), Money.new(:USD, 200))
       true
@@ -1706,15 +1743,15 @@ defmodule Money do
   @doc """
   Negate a `t:Money.t/0` value.
 
-  ### Argument
+  ### Arguments
 
   * `money_1` is any valid `t:Money.t/0` type.
 
-  #### Returns
+  ### Returns
 
   * `{:ok, negated_money}` with the amount negated.
 
-  ### Example
+  ### Examples
 
       iex> Money.negate(Money.new(:USD, 200))
       {:ok, Money.new(:USD, -200)}
@@ -1735,17 +1772,17 @@ defmodule Money do
   Negate a `t:Money.t/0` value or raises an
   exception.
 
-  ### Argument
+  ### Arguments
 
   * `money_1` is any valid `t:Money.t/0` type.
 
-  #### Returns
+  ### Returns
 
   * `negated_money` with the amount negated or
 
   * raises an exception.
 
-  ### Example
+  ### Examples
 
       iex> Money.negate!(Money.new(:USD, 200))
       Money.new(:USD, -200)
@@ -1774,7 +1811,7 @@ defmodule Money do
 
   * `true` or `false`
 
-  ## Example
+  ### Examples
 
       iex> Money.equal?(Money.new(:USD, 200), Money.new(:USD, 200))
       true
@@ -2161,7 +2198,7 @@ defmodule Money do
   @doc """
   Proportionally spreads a given amount across the given portions with no remainder.
 
-  ## Arguments
+  ### Arguments
 
     * `amount` is any `t:Money.t/0`.
 
@@ -2188,7 +2225,14 @@ defmodule Money do
   This approach avoids numerical instability by using the expected remaining amount,
   rather than summing up values as they are doled out.
 
-  ## Examples
+  ### Returns
+
+  * a list of `t:Money.t/0` whose sum equals the original amount, or
+
+  * `{:error, {exception, message}}` if the money's currency cannot
+    be resolved.
+
+  ### Examples
 
       iex> Money.spread(Money.new(:usd, 10), [Money.new(:usd, 10), Money.new(:usd, 1)])
       [Money.new(:USD, "9.09"), Money.new(:USD, "0.91")]
@@ -2283,6 +2327,13 @@ defmodule Money do
   3. Digital Tokens (crypto currencies) do not have formal definitions
      of decimal digits or rounding strategies. Therefore the `money` is
      returned unmodified.
+
+  ### Returns
+
+  * a rounded `t:Money.t/0`, or
+
+  * `{:error, {exception, message}}` if the money's currency cannot
+    be resolved.
 
   ### Examples
 
@@ -2379,6 +2430,13 @@ defmodule Money do
   decimal digits for the currency associated with the `money`.
   Therefore, for a currency with 2 decimal digits, the
   maximum for `fraction` is `99`.
+
+  ### Returns
+
+  * a `t:Money.t/0` with the fractional part set to `fraction`, or
+
+  * `{:error, {exception, message}}` if `fraction` is invalid for
+    the money's currency or the currency cannot be resolved.
 
   ### Examples
 
@@ -2480,6 +2538,12 @@ defmodule Money do
   a `t:Localize.LanguageTag.t/0` parameter. It will return
   the currency configured for that locale.
 
+  ### Returns
+
+  * `{:ok, money}` with the converted `t:Money.t/0`, or
+
+  * `{:error, {exception, message}}`.
+
   ### Examples
 
       iex> Money.to_currency(Money.new(:USD, 100), :AUD,
@@ -2549,6 +2613,12 @@ defmodule Money do
     atom or string and the value is a Decimal conversion factor.  The default is the
     latest available exchange rates returned from `Money.ExchangeRates.latest_rates/0`.
 
+  ### Returns
+
+  * the converted `t:Money.t/0`, or
+
+  * raises an exception.
+
   ### Examples
 
       iex> Money.to_currency! Money.new(:USD, 100), :AUD,
@@ -2593,6 +2663,12 @@ defmodule Money do
   * `rates` is a `Map` of currency rates where the map key is an upcased
     atom or string and the value is a Decimal conversion factor.  The default is the
     latest available exchange rates returned from `Money.ExchangeRates.latest_rates/0`.
+
+  ### Returns
+
+  * `{:ok, rate}` where `rate` is a `t:Decimal.t/0`, or
+
+  * `{:error, {exception, message}}`.
 
   ### Examples
 
@@ -2643,6 +2719,12 @@ defmodule Money do
     atom or string and the value is a Decimal conversion factor.  The default is the
     latest available exchange rates returned from `Money.ExchangeRates.latest_rates/0`.
 
+  ### Returns
+
+  * the cross rate as a `t:Decimal.t/0`, or
+
+  * raises an exception.
+
   ### Examples
 
       iex> Money.cross_rate!(Money.new(:USD, 100), :AUD, %{USD: Decimal.new(1), AUD: Decimal.new("0.7345")})
@@ -2684,7 +2766,11 @@ defmodule Money do
   decimal amount in a standard way that may aid in
   native comparison of `t:Money.t/0` items.
 
-  ## Example
+  ### Returns
+
+  * a `t:Money.t/0` with a normalized amount.
+
+  ### Examples
 
       iex> x = %Money{currency: :USD, amount: %Decimal{sign: 1, coef: 42, exp: 0}}
       Money.new(:USD, "42")
@@ -2729,16 +2815,25 @@ defmodule Money do
   money with an implied exponent the `Money` has to be rounded
   potentially leaving a remainder.
 
-  ### Options
+  ### Arguments
 
   * `money` is any `t:Money.t/0` struct returned by `Money.Currency.new/2`.
+
+  * `options` is a keyword list of options passed to `Money.round/2`.
 
   ### Notes
 
   * Since the returned integer is expected to have the implied fractional
     digits the `Money` needs to be rounded which is what this function does.
 
-  ### Example
+  ### Returns
+
+  * a tuple of the form `{currency_code, integer, exponent, remainder}`, or
+
+  * `{:error, {exception, message}}` if the money's currency cannot
+    be resolved.
+
+  ### Examples
 
       iex> m = Money.new(:USD, "200.012356")
       Money.new(:USD, "200.012356")
@@ -2898,7 +2993,11 @@ defmodule Money do
   * `options` is a keyword list of options passed
     to `Money.new/3`. The default is `[]`.
 
-  ### Example
+  ### Returns
+
+  * a `t:Money.t/0` with a zero amount.
+
+  ### Examples
 
       iex> Money.zero(:USD)
       Money.new(:USD, "0")
@@ -2937,7 +3036,11 @@ defmodule Money do
   * `money` is any valid `t:Money.t/0` type returned
     by `Money.new/2`
 
-  ### Example
+  ### Returns
+
+  * a `boolean` indicating if the money amount is zero.
+
+  ### Examples
 
       iex> Money.zero?(Money.new(:USD, 0))
       true
@@ -2969,7 +3072,12 @@ defmodule Money do
   * `money` is any valid `t:Money.t/0` type returned
     by `Money.new/2`
 
-  ### Example
+  ### Returns
+
+  * a `boolean` indicating if the money amount is an integer value
+    (has no significant fractional digits).
+
+  ### Examples
 
       iex> Money.integer?(Money.new(:USD, 0))
       true
@@ -3008,7 +3116,11 @@ defmodule Money do
   * `money` is any valid `t:Money.t/0` type returned
     by `Money.new/2`
 
-  ### Example
+  ### Returns
+
+  * a `boolean` indicating if the money amount is greater than zero.
+
+  ### Examples
 
       iex> Money.positive?(Money.new(:USD, 1))
       true
@@ -3039,7 +3151,11 @@ defmodule Money do
   * `money` is any valid `t:Money.t/0` type returned
     by `Money.new/2`
 
-  ### Example
+  ### Returns
+
+  * a `boolean` indicating if the money amount is less than zero.
+
+  ### Examples
 
       iex> Money.negative?(Money.new(:USD, -1))
       true

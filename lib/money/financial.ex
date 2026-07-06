@@ -17,7 +17,11 @@ defmodule Money.Financial do
 
   * `periods` in an integer number of periods
 
-  ## Examples
+  ### Returns
+
+  * the future value as a `t:Money.t/0`.
+
+  ### Examples
 
       iex> Money.Financial.future_value Money.new(:USD, 10000), 0.08, 1
       Money.new(:USD, "10800.00")
@@ -53,7 +57,11 @@ defmodule Money.Financial do
   * `interest_rate` is a float representation of an interest rate.  For
   example, 12% would be represented as `0.12`
 
-  ## Example
+  ### Returns
+
+  * the future value as a `t:Money.t/0`.
+
+  ### Examples
 
       iex> Money.Financial.future_value([{4, Money.new(:USD, 10000)}, {5, Money.new(:USD, 10000)}, {6, Money.new(:USD, 10000)}], 0.13)
       Money.new(:USD, "34069.00000000000000000000000000000")
@@ -85,7 +93,11 @@ defmodule Money.Financial do
 
   * `periods` in an integer number of periods
 
-  ## Examples
+  ### Returns
+
+  * the present value as a `t:Money.t/0`.
+
+  ### Examples
 
       iex> Money.Financial.present_value Money.new(:USD, 100), 0.08, 2
       Money.new(:USD, "85.73388203017832647462277091906722")
@@ -116,7 +128,11 @@ defmodule Money.Financial do
   * `interest_rate` is a float representation of an interest rate.  For
   example, 12% would be represented as `0.12`
 
-  ## Example
+  ### Returns
+
+  * the present value as a `t:Money.t/0`.
+
+  ### Examples
 
       iex> Money.Financial.present_value([{4, Money.new(:USD, 10000)}, {5, Money.new(:USD, 10000)}, {6, Money.new(:USD, 10000)}], 0.13)
       Money.new(:USD, "16363.97191111964880256655144582667")
@@ -162,7 +178,11 @@ defmodule Money.Financial do
 
   * `investment` is a %Money{} struct representing the initial investment
 
-  ## Example
+  ### Returns
+
+  * the net present value as a `t:Money.t/0`.
+
+  ### Examples
 
       iex> flows = [{0, Money.new(:USD, 5000)},{1, Money.new(:USD, 2000)},{2, Money.new(:USD, 500)},{3, Money.new(:USD,10_000)}]
       iex> Money.Financial.net_present_value flows, 0.08, Money.new(:USD, 100)
@@ -200,7 +220,11 @@ defmodule Money.Financial do
 
   * `periods` in an integer number of a period
 
-  ## Example
+  ### Returns
+
+  * the net present value as a `t:Money.t/0`.
+
+  ### Examples
 
       iex> Money.Financial.net_present_value(Money.new(:USD, 10000), 0.13, 2)
       Money.new(:USD, "7831.466833737959119743127887853395")
@@ -223,8 +247,14 @@ defmodule Money.Financial do
   @doc """
   Calculates the interal rate of return for a given list of cash flows.
 
+  ### Arguments
+
   * `flows` is a list of tuples representing a cash flow.  Each flow is
     represented as a tuple of the form `{period, %Money{}}`
+
+  ### Returns
+
+  * the internal rate of return as a `float`.
 
   """
   @spec internal_rate_of_return(list({integer, Money.t()})) :: float()
@@ -259,13 +289,19 @@ defmodule Money.Financial do
   Calculates the effective interest rate for a given present value,
   a future value and a number of periods.
 
+  ### Arguments
+
   * `present_value` is a %Money{} representation of the present value
 
   * `future_value` is a %Money{} representation of the future value
 
   * `periods` is an integer number of a period
 
-  ## Examples
+  ### Returns
+
+  * the effective interest rate per period as a `t:Decimal.t/0`.
+
+  ### Examples
 
       iex> Money.Financial.interest_rate Money.new(:USD, 10000), Money.new(:USD, 10816), 2
       Decimal.new("0.04")
@@ -291,6 +327,8 @@ defmodule Money.Financial do
   Calculates the number of periods between a present value and
   a future value with a given interest rate.
 
+  ### Arguments
+
   * `present_value` is a %Money{} representation of the present value
 
   * `future_value` is a %Money{} representation of the future value
@@ -298,7 +336,11 @@ defmodule Money.Financial do
   * `interest_rate` is a float representation of an interest rate.  For
   example, 12% would be represented as `0.12`
 
-  ## Example
+  ### Returns
+
+  * the number of periods as a `t:Decimal.t/0`.
+
+  ### Examples
 
       iex> Money.Financial.periods Money.new(:USD, 1500), Money.new(:USD, 2000), 0.005
       Decimal.new("57.68013595323872502502238366922639")
@@ -321,6 +363,8 @@ defmodule Money.Financial do
   Calculates the payment for a given loan or annuity given a
   present value, an interest rate and a number of periods.
 
+  ### Arguments
+
   * `present_value` is a %Money{} representation of the present value
 
   * `interest_rate` is a float representation of an interest rate.  For
@@ -328,7 +372,12 @@ defmodule Money.Financial do
 
   * `periods` is an integer number of periods
 
-  ## Example
+  ### Returns
+
+  * the payment per period as a `t:Money.t/0` in the currency of
+    `present_value`.
+
+  ### Examples
 
       iex> Money.Financial.payment Money.new(:USD, 100), 0.12, 20
       Money.new(:USD, "13.38787800396606622792492298818559")

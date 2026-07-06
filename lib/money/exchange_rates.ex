@@ -13,8 +13,8 @@ defmodule Money.ExchangeRates do
         exchange_rates_retrieve_every: 300_000,
         api_module: Money.ExchangeRates.OpenExchangeRates,
         callback_module: Money.ExchangeRates.Callback,
-        preload_historic_rates: nil
-        log_failure: :warn,
+        preload_historic_rates: nil,
+        log_failure: :warning,
         log_info: :info,
         log_success: nil
 
@@ -286,7 +286,14 @@ defmodule Money.ExchangeRates do
   Returns the timestamp of the last successful retrieval of exchange rates or
   `{:error, reason}` if no timestamp is known.
 
-  ## Example
+  ### Returns
+
+  * `{:ok, datetime}` with the timestamp of the last successful
+    retrieval of exchange rates, or
+
+  * `{:error, {exception, message}}`.
+
+  ### Examples
 
       Money.ExchangeRates.last_updated
       #> {:ok,

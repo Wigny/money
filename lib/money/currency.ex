@@ -172,7 +172,11 @@ defmodule Money.Currency do
   @doc """
   Returns the list of currently active ISO 4217 currency codes.
 
-  ## Example:
+  ### Returns
+
+  * a list of the ISO 4217 currency codes that are currently active.
+
+  ### Examples
 
       iex> Money.Currency.known_current_currencies()
       [:AED, :AFN, :ALL, :AMD, :AOA, :ARS, :AUD, :AWG, :AZN, :BAM, :BBD, :BDT, :BHD,
@@ -198,7 +202,11 @@ defmodule Money.Currency do
   @doc """
   Returns the list of historic ISO 4217 currency codes.
 
-  ## Example:
+  ### Returns
+
+  * a list of historic (no longer active) ISO 4217 currency codes.
+
+  ### Examples
 
       iex> Money.Currency.known_historic_currencies()
       [:ADP, :AFA, :ALK, :ANG, :AOK, :AON, :AOR, :ARA, :ARL, :ARM, :ARP, :ATS, :AZM,
@@ -220,7 +228,11 @@ defmodule Money.Currency do
   @doc """
   Returns the list of legal tender ISO 4217 currency codes.
 
-  ## Example:
+  ### Returns
+
+  * a list of the ISO 4217 currency codes that are legal tender.
+
+  ### Examples
 
       iex> Money.Currency.known_tender_currencies()
       [:ADP, :AED, :AFA, :AFN, :ALK, :ALL, :AMD, :ANG, :AOA, :AOK, :AON, :AOR, :ARA,

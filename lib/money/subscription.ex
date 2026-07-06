@@ -77,7 +77,7 @@ defmodule Money.Subscription do
 
   This module, and `Money` in general, does not provide a full
   billing or subscription solution - its focus is to support a reliable
-  means of calcuating the accounting outcome of a plan change only.
+  means of calculating the accounting outcome of a plan change only.
   Therefore the plan definition required by `Money.Subscription` can be
   any `Map.t` that includes the following fields:
 
@@ -133,7 +133,7 @@ defmodule Money.Subscription do
   @doc """
   Creates a new subscription.
 
-  ## Arguments
+  ### Arguments
 
   * `plan` is any `Money.Subscription.Plan.t` the defines the initial plan
 
@@ -142,7 +142,7 @@ defmodule Money.Subscription do
 
   * `options` is a keyword list of options
 
-  ## Options
+  ### Options
 
   * `:id` is any term that an application can use to uniquely identify
     this subscription.  It is not used in any function in this module.
@@ -150,7 +150,7 @@ defmodule Money.Subscription do
   * `:created_at` is a `DateTime.t` that records the timestamp when
     the subscription was created.  The default is `DateTime.utc_now/0`
 
-  ## Returns
+  ### Returns
 
   * `{:ok, Money.Subscription.t}` or
 
@@ -204,7 +204,7 @@ defmodule Money.Subscription do
   @doc """
   Creates a new subscription or raises an exception.
 
-  ## Arguments
+  ### Arguments
 
   * `plan` is any `Money.Subscription.Plan.t` the defines the initial plan
 
@@ -213,7 +213,7 @@ defmodule Money.Subscription do
 
   * `:options` is a keyword list of options
 
-  ## Options
+  ### Options
 
   * `:id` is any term that an application can use to uniquely identify
     this subscription.  It is not used in any function in this module.
@@ -221,7 +221,7 @@ defmodule Money.Subscription do
   * `:created_at` is a `DateTime.t` that records the timestamp when
     the subscription was created.  The default is `DateTime.utc_now/0`
 
-  ## Returns
+  ### Returns
 
   * A `Money.Subscription.t` or
 
@@ -251,12 +251,12 @@ defmodule Money.Subscription do
   plan in the list.  We may have upgraded plans to
   be in affect at some later time.
 
-  ## Arguments
+  ### Arguments
 
   * `subscription` is a `Money.Subscription.t` or any
     map that provides the field `:plans`
 
-  ## Returns
+  ### Returns
 
   * The `Money.Subscription.Plan.t` that is the plan currently in affect or
     `nil`
@@ -297,19 +297,19 @@ defmodule Money.Subscription do
   plans but the plan is not yet in effect.  There can only
   be one pending plan.
 
-  ## Arguments
+  ### Arguments
 
   * `:subscription` is any `Money.Subscription.t`
 
   * `:options` is a keyword list of options
 
-  ## Options
+  ### Options
 
   * `:today` is a `Date.t` that represents the effective
     date used to determine is there is a pending plan.
     The default is `Date.utc_today/1`.
 
-  ## Returns
+  ### Returns
 
   * Either `true` or `false`
 
@@ -334,18 +334,18 @@ defmodule Money.Subscription do
   `Subscription.cancel_pending_plan/2`
   can be used to roll back the pending plan change.
 
-  ## Arguments
+  ### Arguments
 
   * `:subscription` is any `Money.Subscription.t`
 
   * `:options` is a `Keyword.t`
 
-  ## Options
+  ### Options
 
   * `:today` is a `Date.t` that represents today.
     The default is `Date.utc_today`
 
-  ## Returns
+  ### Returns
 
   * An updated `Money.Subscription.t` which may or may not
   have had a pending plan.  If it did have a pending plan
@@ -366,12 +366,12 @@ defmodule Money.Subscription do
   @doc """
   Returns the start date of the current plan.
 
-  ## Arguments
+  ### Arguments
 
   * `subscription` is a `Money.Subscription.t` or any
     map that provides the field `:plans`
 
-  ## Returns
+  ### Returns
 
   * The start `Date.t` of the current plan
 
@@ -390,19 +390,19 @@ defmodule Money.Subscription do
   @doc """
   Returns the first date of the current interval of a plan.
 
-  ## Arguments
+  ### Arguments
 
   * `:subscription_or_changeset` is any`Money.Subscription.t` or
     a `{Change.t, Plan.t}` tuple
 
   * `:options` is a keyword list of options
 
-  ## Options
+  ### Options
 
   * `:today` is a `Date.t` that represents today.
     The default is `Date.utc_today`
 
-  ## Returns
+  ### Returns
 
   * The `Date.t` that is the first date of the current interval
 
@@ -465,12 +465,12 @@ defmodule Money.Subscription do
   The latest plan may not be in affect since
   its start date may be in the future.
 
-  ## Arguments
+  ### Arguments
 
   * `subscription` is a `Money.Subscription.t` or any
     map that provides the field `:plans`
 
-  ## Returns
+  ### Returns
 
   * The `Money.Subscription.Plan.t` that is the most recent
     plan - whether or not it is the currently active plan.
@@ -485,7 +485,7 @@ defmodule Money.Subscription do
   @doc """
   Change plan from the current plan to a new plan.
 
-  ## Arguments
+  ### Arguments
 
   * `subscription_or_plan` is either a `Money.Subscription.t` or `Money.Subscription.Plan.t`
     or a map with the same fields
@@ -498,7 +498,7 @@ defmodule Money.Subscription do
 
   * `options` is a keyword list of options the define how the change is to be made
 
-  ## Options
+  ### Options
 
   * `:effective` defines when the new plan comes into effect.  The values are `:immediately`,
     a `Date.t` or `:next_period`.  The default is `:next_period`.  Note that the date
@@ -521,7 +521,7 @@ defmodule Money.Subscription do
     is automatically populated from the subscription. If `:first_interval_started` is
     `nil` then the date defined by `:effective` is used.
 
-  ## Returns
+  ### Returns
 
   A `Money.Subscription.Change.t` with the following elements:
 
@@ -553,13 +553,13 @@ defmodule Money.Subscription do
     amount for the current plan is greater than the `:price` of the new plan.  In
     this case the `:first_billing_amount` is zero.
 
-  ## Returns
+  ### Returns
 
   * `{:ok, updated_subscription}` or
 
   * `{:error, {exception, message}}`
 
-  ## Examples
+  ### Examples
 
       # Change at end of the current period so no proration
       iex> current = Money.Subscription.Plan.new!(Money.new(:USD, 10), :month, 1)
@@ -654,10 +654,17 @@ defmodule Money.Subscription do
   @doc """
   Change plan from the current plan to a new plan.
 
-  Retuns the plan or raises an exception on error.
+  ### Arguments
 
-  See `Money.Subscription.change_plan/3` for the description
-  of arguments, options and return.
+  * See `Money.Subscription.change_plan/3` for the description
+    of the arguments and options.
+
+  ### Returns
+
+  * a `t:Money.Subscription.Change.t/0` or an updated
+    `t:Money.Subscription.t/0`, or
+
+  * raises an exception on error.
 
   """
   # @doc since: "2.3.0"
@@ -807,17 +814,17 @@ defmodule Money.Subscription do
   @doc """
   Returns number of days in a plan interval.
 
-  ## Arguments
+  ### Arguments
 
   * `plan` is any `Money.Subscription.Plan.t`
 
   * `current_interval_started` is any `Date.t`
 
-  ## Returns
+  ### Returns
 
   The number of days in a plan interval.
 
-  ## Examples
+  ### Examples
 
       iex> plan = Money.Subscription.Plan.new! Money.new!(:USD, 100), :month, 1
       iex> Money.Subscription.plan_days plan, ~D[2018-01-01]
@@ -839,7 +846,7 @@ defmodule Money.Subscription do
   @doc """
   Returns number of days remaining in a plan interval.
 
-  ## Arguments
+  ### Arguments
 
   * `plan` is any `Money.Subscription.Plan.t`
 
@@ -849,11 +856,11 @@ defmodule Money.Subscription do
     `current_interval_started` and before the end of
     the `plan_days`
 
-  ## Returns
+  ### Returns
 
   The number of days remaining in a plan interval
 
-  ## Examples
+  ### Examples
 
       iex> plan = Money.Subscription.Plan.new! Money.new!(:USD, 100), :month, 1
       iex> Money.Subscription.days_remaining plan, ~D[2018-01-01], ~D[2018-01-02]
@@ -873,18 +880,18 @@ defmodule Money.Subscription do
   @doc """
   Returns the next interval start date for a plan.
 
-  ## Arguments
+  ### Arguments
 
   * `plan` is any `Money.Subscription.Plan.t`
 
   * `:current_interval_started` is the `Date.t` that
     represents the start of the current interval
 
-  ## Returns
+  ### Returns
 
   The next interval start date as a `Date.t`.
 
-  ## Example
+  ### Examples
 
       iex> plan = Money.Subscription.Plan.new!(Money.new!(:USD, 100), :month)
       iex> Money.Subscription.next_interval_starts(plan, ~D[2018-03-01])
