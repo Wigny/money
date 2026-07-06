@@ -159,6 +159,7 @@ defmodule Money.ExchangeRates do
   retriever module.
 
   """
+  @spec config() :: Money.ExchangeRates.Config.t()
   def config do
     api_module = default_config().api_module
 
@@ -210,6 +211,7 @@ defmodule Money.ExchangeRates do
   Returns the default configuration for the exchange rates retriever.
 
   """
+  @spec default_config() :: Money.ExchangeRates.Config.t()
   def default_config do
     %Config{
       api_module: Money.get_env(:api_module, @default_api_module, :module),

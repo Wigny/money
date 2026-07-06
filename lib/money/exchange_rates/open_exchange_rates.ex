@@ -51,6 +51,7 @@ defmodule Money.ExchangeRates.OpenExchangeRates do
   end
 
   @doc false
+  @spec decode_rates(binary() | list()) :: map()
   def decode_rates(body) when is_list(body) do
     body
     |> List.to_string()

@@ -80,6 +80,7 @@ defmodule Money do
 
   alias Money.ExchangeRates
 
+  @spec known_currencies() :: [atom(), ...]
   def known_currencies do
     Localize.Currency.known_currency_codes() ++ Money.Currency.Store.codes()
   end
@@ -2031,6 +2032,7 @@ defmodule Money do
       ** (ArgumentError) Cannot compare monies with different currencies. Received :USD and :CAD.
 
   """
+  @spec compare!(Money.t(), Money.t()) :: :lt | :eq | :gt | no_return()
   def compare!(%Money{} = money_1, %Money{} = money_2) do
     case compare(money_1, money_2) do
       {:error, {exception, reason}} -> raise exception, reason
@@ -2108,6 +2110,7 @@ defmodule Money do
       ** (ArgumentError) Cannot compare monies with different currencies. Received :USD and :CAD.
 
   """
+  @spec cmp!(Money.t(), Money.t()) :: -1 | 0 | 1 | no_return()
   def cmp!(%Money{} = money_1, %Money{} = money_2) do
     case cmp(money_1, money_2) do
       {:error, {exception, reason}} -> raise exception, reason
@@ -2244,7 +2247,7 @@ defmodule Money do
       [Money.new(:USD, "0.67"), Money.new(:USD, "0.66"), Money.new(:USD, "0.67")]
 
   """
-  @spec spread(Money.t(), list(Money.t()) | list(number()) | integer()) ::
+  @spec spread(Money.t(), list(Money.t()) | list(number()) | integer(), Keyword.t()) ::
           list(Money.t()) | {:error, {module(), String.t()}}
   def spread(amount, portions, options \\ [])
   def spread([], _, _), do: []
@@ -2451,6 +2454,8 @@ defmodule Money do
        {Money.InvalidAmountError, "Rounding up to 999 is invalid for currency :USD"}}
 
   """
+  @spec put_fraction(Money.t(), non_neg_integer()) ::
+          Money.t() | {:error, {module(), String.t()}}
   def put_fraction(money, fraction \\ 0)
 
   @one Decimal.new(1)
@@ -2798,6 +2803,7 @@ defmodule Money do
   end
 
   @deprecated "Use Money.normalize/1 instead."
+  @spec reduce(Money.t()) :: Money.t()
   def reduce(money) do
     normalize(money)
   end
@@ -2846,6 +2852,9 @@ defmodule Money do
       {:USD, 20000, -2, Money.new(:USD, "0.00")}
 
   """
+  @spec to_integer_exp(Money.t(), Keyword.t()) ::
+          {atom() | String.t(), integer(), integer(), Money.t()}
+          | {:error, {module(), String.t()}}
   def to_integer_exp(%Money{} = money, options \\ []) do
     # `round/2` returns an error tuple when the money's currency cannot be
     # resolved; propagate it rather than crashing in `normalize/1`.
@@ -2854,14 +2863,13 @@ defmodule Money do
          {:ok, remainder} <- Money.sub(money, new_money),
          {:ok, currency} <- Money.Currency.currency_for_code(money.currency),
          {:ok, exponent, _options} <- digits_from_options(currency, options) do
-      exponent_adjustment = Kernel.abs(-exponent - new_money.amount.exp)
-
-      integer =
-        Localize.Utils.Math.power_of_10(exponent_adjustment) * new_money.amount.coef *
-          new_money.amount.sign
-
-      {money.currency, integer, -exponent, remainder}
+      {money.currency, integer_amount(new_money, exponent), -exponent, remainder}
     end
+  end
+
+  defp integer_amount(%Money{amount: amount}, exponent) do
+    exponent_adjustment = Kernel.abs(-exponent - amount.exp)
+    Localize.Utils.Math.power_of_10(exponent_adjustment) * amount.coef * amount.sign
   end
 
   @doc """
@@ -3178,11 +3186,15 @@ defmodule Money do
   end
 
   @doc false
+  @spec from_integer({atom() | String.t(), integer(), integer(), Money.t()}) ::
+          Money.t() | {:error, {module(), String.t()}}
   def from_integer({currency, integer, _exponent, _remainder}) do
     from_integer(integer, currency)
   end
 
   @doc false
+  @spec validate_currency(currency_reference(), Keyword.t()) ::
+          {:ok, atom() | String.t()} | {:error, {module(), String.t()}}
   def validate_currency(currency_code, options \\ []) do
     case existing_currency_atom(currency_code) do
       nil ->
@@ -3254,11 +3266,13 @@ defmodule Money do
   end
 
   @doc false
+  @spec unknown_currency_error(any()) :: {module(), String.t()}
   def unknown_currency_error(currency) do
     {Money.UnknownCurrencyError, "The currency #{inspect(currency)} is unknown or not supported"}
   end
 
   @doc false
+  @spec invalid_amount_error(any()) :: {module(), String.t()}
   def invalid_amount_error(amount) do
     {Money.InvalidAmountError, "Amount cannot be converted to a number: #{inspect(amount)}"}
   end
@@ -3270,6 +3284,7 @@ defmodule Money do
   ## Helpers
 
   @doc false
+  @spec get_env(atom(), any()) :: any()
   def get_env(key, default \\ nil) do
     case env = Application.get_env(:ex_money, key, default) do
       {:system, env_key} ->
@@ -3280,6 +3295,8 @@ defmodule Money do
     end
   end
 
+  @spec get_env(atom(), any(), :integer | :maybe_integer | :module | :boolean) ::
+          atom() | integer() | nil
   def get_env(key, default, :integer) do
     key
     |> get_env(default)
@@ -3326,6 +3343,9 @@ defmodule Money do
   defp to_module(module_name) when is_atom(module_name), do: module_name
 
   defp to_module(module_name) when is_binary(module_name) do
+    # Configuration values are developer-controlled, not untrusted input, so
+    # creating an atom here cannot exhaust the atom table.
+    # credo:disable-for-next-line Credo.Check.Warning.UnsafeToAtom
     Module.concat([module_name])
   end
 
@@ -3401,6 +3421,7 @@ defmodule Money do
 
   @doc false
   @app_name Money.Mixfile.project() |> Keyword.get(:app)
+  @spec app_name() :: :ex_money
   def app_name do
     @app_name
   end
@@ -3410,11 +3431,13 @@ defmodule Money do
 
   """
   @doc since: "5.18.1"
+  @spec default_rounding_mode() :: :half_even
   def default_rounding_mode do
     @default_rounding_mode
   end
 
   @doc false
+  @spec exclude_protocol_implementation(module()) :: boolean()
   def exclude_protocol_implementation(module) when is_atom(module) do
     exclusions =
       Application.get_env(:ex_money, :exclude_protocol_implementations, []) |> List.wrap()

@@ -88,6 +88,26 @@
           # for itself, rather than every single-use qualified name.
           {Credo.Check.Design.AliasUsage,
            [priority: :low, if_nested_deeper_than: 2, if_called_more_often_than: 3]},
+
+          # All public functions carry a `@spec`. Excluded: the nimble_parsec
+          # grammar (macro-generated combinators) and protocol implementations
+          # (their signatures are fixed by the protocol).
+          {Credo.Check.Readability.Specs,
+           [
+             files: %{
+               included: ["lib/"],
+               excluded: ["lib/money/parser/combinators.ex", "lib/money/protocol/"]
+             }
+           ]},
+
+          # The nimble_parsec grammar is excluded: combinator pipelines are
+          # declarative grammar definitions, not imperative complexity.
+          {Credo.Check.Refactor.ABCSize,
+           [files: %{excluded: ["lib/money/parser/combinators.ex"]}]},
+
+          # Scoped to lib: tests deliberately create unique atoms (for example
+          # uniquely named retriever processes) which is safe in a test run.
+          {Credo.Check.Warning.UnsafeToAtom, [files: %{included: ["lib/"]}]},
           {Credo.Check.Design.TagFIXME, []},
           # You can also customize the exit_status of each check.
           # If you don't want TODO comments to cause `mix credo` to fail, just
@@ -187,6 +207,8 @@
           {Credo.Check.Design.SkipTestWithoutComment, []},
           {Credo.Check.Readability.AliasAs, []},
           {Credo.Check.Readability.BlockPipe, []},
+          # Not enabled: it rejects the idiomatic `@impl true` in favour of
+          # `@impl BehaviourModule`; the compiler already validates `@impl true`.
           {Credo.Check.Readability.ImplTrue, []},
           {Credo.Check.Readability.MultiAlias, []},
           {Credo.Check.Readability.NestedFunctionCalls, []},
@@ -195,10 +217,8 @@
           {Credo.Check.Readability.SeparateAliasRequire, []},
           {Credo.Check.Readability.SingleFunctionToBlockPipe, []},
           {Credo.Check.Readability.SinglePipe, []},
-          {Credo.Check.Readability.Specs, []},
           {Credo.Check.Readability.StrictModuleLayout, []},
           {Credo.Check.Readability.WithCustomTaggedTuple, []},
-          {Credo.Check.Refactor.ABCSize, []},
           {Credo.Check.Refactor.AppendSingleItem, []},
           {Credo.Check.Refactor.CondInsteadOfIfElse, []},
           {Credo.Check.Refactor.DoubleBooleanNegation, []},
@@ -215,7 +235,6 @@
           {Credo.Check.Warning.LeakyEnvironment, []},
           {Credo.Check.Warning.MapGetUnsafePass, []},
           {Credo.Check.Warning.MixEnv, []},
-          {Credo.Check.Warning.UnsafeToAtom, []}
           # {Credo.Check.Warning.UnusedOperation, [{MyMagicModule, [:fun1, :fun2]}]}
 
           # {Credo.Check.Refactor.MapInto, []},

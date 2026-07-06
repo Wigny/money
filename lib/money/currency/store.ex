@@ -26,6 +26,7 @@ defmodule Money.Currency.Store do
   Starts the custom currency store.
 
   """
+  @spec start_link(Keyword.t()) :: GenServer.on_start()
   def start_link(options \\ []) do
     GenServer.start_link(__MODULE__, options, name: __MODULE__)
   end

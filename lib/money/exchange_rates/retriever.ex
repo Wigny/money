@@ -51,27 +51,32 @@ defmodule Money.ExchangeRates.Retriever do
   require Logger
 
   @doc deprecated: "Use `Supervisor.start_child/2` on your application's supervisor instead"
+  @spec start(GenServer.name(), Money.ExchangeRates.Config.t()) :: GenServer.on_start()
   def start(name \\ __MODULE__, config \\ Money.ExchangeRates.config()) do
     GenServer.start_link(__MODULE__, config, name: name)
   end
 
   @doc deprecated: "Use `Supervisor.terminate_child/2` on your application's supervisor instead"
+  @spec stop(GenServer.server()) :: :ok
   def stop(retriever \\ __MODULE__) do
     GenServer.stop(retriever)
   end
 
   @doc deprecated: "Use `Supervisor.restart_child/2` on your application's supervisor instead"
+  @spec restart(GenServer.name()) :: GenServer.on_start()
   def restart(retriever \\ __MODULE__) do
     if pid = GenServer.whereis(retriever), do: GenServer.stop(pid)
     start(retriever)
   end
 
   @doc deprecated: "Use `Supervisor.delete_child/2` on your application's supervisor instead"
+  @spec delete(GenServer.server()) :: :ok
   def delete(retriever \\ __MODULE__) do
     stop(retriever)
   end
 
   @doc false
+  @spec start_link(Keyword.t()) :: GenServer.on_start()
   def start_link(opts \\ []) do
     config = Keyword.get(opts, :config, Money.ExchangeRates.config())
     name = Keyword.get(opts, :name, __MODULE__)
@@ -242,6 +247,8 @@ defmodule Money.ExchangeRates.Retriever do
   Service
 
   """
+  @spec reconfigure(GenServer.name(), Money.ExchangeRates.Config.t()) ::
+          Money.ExchangeRates.Config.t() | {:error, {module(), String.t()}}
   def reconfigure(retriever \\ __MODULE__, %Money.ExchangeRates.Config{} = config) do
     case Process.whereis(retriever) do
       nil -> {:error, exchange_rate_service_error()}
@@ -254,6 +261,8 @@ defmodule Money.ExchangeRates.Retriever do
   Retrieval service
 
   """
+  @spec config(GenServer.name()) ::
+          Money.ExchangeRates.Config.t() | {:error, {module(), String.t()}}
   def config(retriever \\ __MODULE__) do
     case Process.whereis(retriever) do
       nil -> {:error, exchange_rate_service_error()}
@@ -263,6 +272,8 @@ defmodule Money.ExchangeRates.Retriever do
 
   @doc deprecated:
          "Use `Money.ExchangeRates.HTTP` or the HTTP client of your preference directly instead"
+  @spec retrieve_rates(charlist() | String.t(), Money.ExchangeRates.Config.t()) ::
+          {:ok, map() | :not_modified} | {:error, term()}
   def retrieve_rates(url, config) when is_list(url) do
     url
     |> List.to_string()
@@ -291,7 +302,7 @@ defmodule Money.ExchangeRates.Retriever do
   # Server implementation
   #
 
-  @doc false
+  @impl true
   def init(config) do
     :erlang.process_flag(:trap_exit, true)
     config.cache_module.init()
@@ -309,27 +320,27 @@ defmodule Money.ExchangeRates.Retriever do
     {:ok, config}
   end
 
-  @doc false
+  @impl true
   def terminate(:normal, config) do
     config.cache_module.terminate()
   end
 
-  @doc false
+  @impl true
   def terminate(:shutdown, config) do
     config.cache_module.terminate()
   end
 
-  @doc false
+  @impl true
   def terminate(other, _config) do
     Logger.error("[ExchangeRates.Retriever] Terminate called with unhandled #{inspect(other)}")
   end
 
-  @doc false
+  @impl true
   def handle_call(:latest_rates, _from, config) do
     {:reply, retrieve_latest_rates(config), config}
   end
 
-  @doc false
+  @impl true
   def handle_call({:historic_rates, date}, _from, config) do
     {:reply, retrieve_historic_rates(date, config), config}
   end
@@ -342,52 +353,52 @@ defmodule Money.ExchangeRates.Retriever do
     {:reply, config.cache_module.last_updated(), config}
   end
 
-  @doc false
+  @impl true
   def handle_call({:reconfigure, new_configuration}, _from, config) do
     config.cache_module.terminate()
     {:ok, new_config} = init(new_configuration)
     {:reply, new_config, new_config}
   end
 
-  @doc false
+  @impl true
   def handle_call(:config, _from, config) do
     {:reply, config, config}
   end
 
-  @doc false
+  @impl true
   def handle_call(:stop, _from, config) do
     {:stop, :normal, :ok, config}
   end
 
-  @doc false
+  @impl true
   def handle_call({:stop, reason}, _from, config) do
     {:stop, reason, :ok, config}
   end
 
-  @doc false
+  @impl true
   def handle_info(:scheduled_latest_rates_fetch, config) do
     fetch_latest_rates(config)
     schedule_latest_rates_fetch(config.retrieve_every)
     {:noreply, config}
   end
 
-  @doc false
+  @impl true
   def handle_info({:historic_rates, %Date{calendar: Calendar.ISO} = date}, config) do
     retrieve_historic_rates(date, config)
     {:noreply, config}
   end
 
-  @doc false
+  @impl true
   def handle_info(:stop, config) do
     {:stop, :normal, config}
   end
 
-  @doc false
+  @impl true
   def handle_info({:stop, reason}, config) do
     {:stop, reason, config}
   end
 
-  @doc false
+  @impl true
   def handle_info(message, config) do
     Logger.error("Invalid message for ExchangeRates.Retriever: #{inspect(message)}")
     {:noreply, config}
@@ -550,6 +561,7 @@ defmodule Money.ExchangeRates.Retriever do
   end
 
   @doc false
+  @spec log(map(), atom(), String.t()) :: :ok | nil
   def log(%{log_levels: log_levels}, key, message) do
     case Map.get(log_levels, key) do
       nil ->

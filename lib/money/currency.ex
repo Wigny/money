@@ -195,6 +195,7 @@ defmodule Money.Currency do
        :XSU, :XTS, :XUA, :XXX, :YER, :ZAR, :ZMW, :ZWG]
 
   """
+  @spec known_current_currencies() :: [atom(), ...]
   def known_current_currencies do
     @current_currencies
   end
@@ -221,6 +222,7 @@ defmodule Money.Currency do
        :XRE, :YDD, :YUD, :YUM, :YUN, :YUR, :ZAL, :ZMK, :ZRN, :ZRZ, :ZWD, :ZWL, :ZWR]
 
   """
+  @spec known_historic_currencies() :: [atom(), ...]
   def known_historic_currencies do
     @historic_currencies
   end
@@ -261,6 +263,7 @@ defmodule Money.Currency do
        :ZMK, :ZMW, :ZRN, :ZRZ, :ZWD, :ZWG, :ZWL, :ZWR]
 
   """
+  @spec known_tender_currencies() :: [atom(), ...]
   def known_tender_currencies do
     @tender_currencies
   end
@@ -336,6 +339,8 @@ defmodule Money.Currency do
       {:error, {Money.UnknownCurrencyError, "The currency :NotACurrency is not known."}}
 
   """
+  @spec currency_for_code(atom() | String.t()) ::
+          {:ok, Localize.Currency.t()} | {:error, {module(), String.t()}}
   def currency_for_code(code) do
     case normalize_code(code) do
       nil ->
@@ -411,6 +416,10 @@ defmodule Money.Currency do
   # of the format rule) and, when valid, returns the canonical upcased atom.
   defp validate_custom_currency_code(currency_code) do
     if private_or_custom_code?(currency_code) do
+      # Creating the atom is safe here: the code has already passed the
+      # custom/private format regex (3 to 10 characters) and currency
+      # registration is a developer-driven action, not untrusted input.
+      # credo:disable-for-next-line Credo.Check.Warning.UnsafeToAtom
       {:ok, currency_code |> to_string() |> String.upcase() |> String.to_atom()}
     else
       {:error,

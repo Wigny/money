@@ -8,6 +8,7 @@ defmodule Money.Parser do
   defparsec(:money_parser, choice([money_with_currency(), accounting_format()]))
   # parsec:Money.Parser
 
+  @spec change_sign({:amount, String.t()} | any()) :: {:amount, String.t()} | any()
   def change_sign({:amount, amount}) do
     revised_number =
       case amount do
@@ -20,6 +21,7 @@ defmodule Money.Parser do
 
   def change_sign(other), do: other
 
+  @spec add_minus_sign(String.t()) :: String.t()
   def add_minus_sign(arg) do
     "-" <> arg
   end

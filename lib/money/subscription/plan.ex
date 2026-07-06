@@ -163,6 +163,8 @@ defmodule Money.Subscription.Plan do
 
     """
     @doc since: "5.22.0"
+    @spec to_string(t(), Keyword.t()) ::
+            {:ok, String.t()} | {:error, Exception.t()}
     def to_string(%__MODULE__{} = plan, options \\ []) do
       unit_name = unit_from_plan(plan)
 
@@ -170,6 +172,7 @@ defmodule Money.Subscription.Plan do
       |> Localize.Unit.to_string(options)
     end
 
+    @spec to_string!(t(), Keyword.t()) :: String.t() | no_return()
     def to_string!(%__MODULE__{} = plan, options \\ []) do
       case to_string(plan, options) do
         {:ok, string} -> string

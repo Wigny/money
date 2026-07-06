@@ -24,6 +24,7 @@ defmodule Money.ExchangeRates.Cache.Dets do
     :dets.close(@ets_table)
   end
 
+  @spec get(any()) :: any()
   def get(key) do
     case :dets.lookup(@ets_table, key) do
       [{^key, value}] -> value
@@ -31,6 +32,7 @@ defmodule Money.ExchangeRates.Cache.Dets do
     end
   end
 
+  @spec put(any(), any()) :: any()
   def put(key, value) do
     :dets.insert(@ets_table, {key, value})
     value

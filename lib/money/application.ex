@@ -3,6 +3,7 @@ defmodule Money.Application do
   use Application
   require Logger
 
+  @impl true
   def start(_type, args) do
     children = [
       Money.Currency.Store
@@ -82,6 +83,7 @@ defmodule Money.Application do
   end
 
   @doc false
+  @spec maybe_log_deprecation() :: :ok | nil
   def maybe_log_deprecation do
     case Application.fetch_env(:ex_money, :delay_before_first_retrieval) do
       {:ok, _} ->

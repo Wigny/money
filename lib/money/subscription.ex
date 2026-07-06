@@ -932,23 +932,11 @@ defmodule Money.Subscription do
   end
 
   def next_interval_starts(
-        %{interval: :month, interval_count: count} = plan,
-        %{year: year, month: month, day: day, calendar: calendar} = current_interval_started,
+        %{interval: :month, interval_count: _count} = plan,
+        %{year: _year, month: _month, day: day, calendar: calendar} = current_interval_started,
         options
       ) do
-    # options = if is_list(options), do: options, else: Enum.into(options, %{})
-    months_in_this_year = months_in_year(current_interval_started)
-
-    {year, month} =
-      if count + month <= months_in_this_year do
-        {year, month + count}
-      else
-        months_left_this_year = months_in_this_year - month
-        plan = %{plan | interval_count: count - months_left_this_year - 1}
-        current_interval_started = %{current_interval_started | year: year + 1, month: 1, day: day}
-        date = next_interval_starts(plan, current_interval_started, options)
-        {Map.get(date, :year), Map.get(date, :month)}
-      end
+    {year, month} = add_months(plan, current_interval_started, options)
 
     day =
       year
@@ -968,6 +956,27 @@ defmodule Money.Subscription do
   end
 
   ## Helpers
+
+  # Advances `current_interval_started` by the plan's interval count in
+  # months, rolling over year boundaries recursively. Returns the resulting
+  # `{year, month}`; day-of-month clamping is done by the caller.
+  defp add_months(
+         %{interval_count: count} = plan,
+         %{year: year, month: month} = current_interval_started,
+         options
+       ) do
+    months_in_this_year = months_in_year(current_interval_started)
+
+    if count + month <= months_in_this_year do
+      {year, month + count}
+    else
+      months_left_this_year = months_in_this_year - month
+      plan = %{plan | interval_count: count - months_left_this_year - 1}
+      current_interval_started = %{current_interval_started | year: year + 1, month: 1}
+      date = next_interval_starts(plan, current_interval_started, options)
+      {Map.get(date, :year), Map.get(date, :month)}
+    end
+  end
 
   @default_months_in_year 12
   defp months_in_year(%{year: year, calendar: calendar}) do

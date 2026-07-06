@@ -30,6 +30,7 @@ defmodule Money.ExchangeRates.Cache.Ets do
     :ok
   end
 
+  @spec get(any()) :: any()
   def get(key) do
     case :ets.lookup(@ets_table, key) do
       [{^key, value}] -> value
@@ -37,6 +38,7 @@ defmodule Money.ExchangeRates.Cache.Ets do
     end
   end
 
+  @spec put(any(), any()) :: any()
   def put(key, value) do
     :ets.insert(@ets_table, {key, value})
     value

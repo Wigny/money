@@ -41,6 +41,7 @@ defmodule Money.Sigil do
     |> validate_currency!
   end
 
+  @spec validate_currency!(String.t()) :: atom() | String.t() | no_return()
   def validate_currency!(currency) do
     case Money.validate_currency(currency) do
       {:ok, currency} ->
