@@ -401,7 +401,7 @@ defmodule Money.ExchangeRates.Retriever do
   end
 
   defp fetch_latest_rates(config) do
-    case config.api_module.get_latest_rates(config) do
+    case call_api_module(config, :get_latest_rates, [config]) do
       {:ok, :not_modified} ->
         log(config, :success, "Retrieved latest exchange rates successfully. Rates unchanged.")
         config.cache_module.latest_rates()
@@ -409,7 +409,7 @@ defmodule Money.ExchangeRates.Retriever do
       {:ok, rates} ->
         retrieved_at = DateTime.utc_now()
         config.cache_module.store_latest_rates(rates, retrieved_at)
-        apply(config.callback_module, :latest_rates_retrieved, [rates, retrieved_at])
+        run_callback(config, :latest_rates_retrieved, [rates, retrieved_at])
         log(config, :success, "Retrieved latest exchange rates successfully")
         {:ok, rates}
 
@@ -427,14 +427,14 @@ defmodule Money.ExchangeRates.Retriever do
   end
 
   defp fetch_historic_rates(date, config) do
-    case config.api_module.get_historic_rates(date, config) do
+    case call_api_module(config, :get_historic_rates, [date, config]) do
       {:ok, :not_modified} ->
         log(config, :success, "Historic exchange rates for #{Date.to_string(date)} unchanged")
         config.cache_module.historic_rates(date)
 
       {:ok, rates} ->
         config.cache_module.store_historic_rates(rates, date)
-        apply(config.callback_module, :historic_rates_retrieved, [rates, date])
+        run_callback(config, :historic_rates_retrieved, [rates, date])
 
         log(
           config,
@@ -454,6 +454,41 @@ defmodule Money.ExchangeRates.Retriever do
 
         {:error, reason}
     end
+  end
+
+  # The API module is user-configured code that performs network requests and
+  # decodes provider responses — a true system boundary, so `rescue` is
+  # appropriate here. An exception raised there (for example while decoding a
+  # malformed provider response) must not crash the retriever: `init/1`
+  # schedules an immediate fetch after a restart, so a deterministic raise
+  # would put the retriever into a rapid crash loop that can exhaust the
+  # supervisor's restart intensity and take down the host application.
+  defp call_api_module(config, function_name, arguments) do
+    apply(config.api_module, function_name, arguments)
+  rescue
+    exception ->
+      {:error,
+       {Money.ExchangeRateError,
+        "#{inspect(config.api_module)}.#{function_name} raised " <>
+          "#{inspect(exception.__struct__)}: #{Exception.message(exception)}"}}
+  end
+
+  # Callbacks are user-configured code invoked after a successful retrieval —
+  # also a system boundary. A raising callback must neither crash the
+  # retriever nor discard the successfully retrieved (and already cached)
+  # rates, so the exception is logged and retrieval continues.
+  defp run_callback(config, function_name, arguments) do
+    apply(config.callback_module, function_name, arguments)
+  rescue
+    exception ->
+      log(
+        config,
+        :failure,
+        "#{inspect(config.callback_module)}.#{function_name} raised " <>
+          "#{inspect(exception.__struct__)}: #{Exception.message(exception)}"
+      )
+
+      :ok
   end
 
   defp schedule_latest_rates_fetch(delay_ms) when is_integer(delay_ms) do

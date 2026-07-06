@@ -261,15 +261,38 @@ defmodule Money do
   # as a Decimal
 
   def new(param_a, param_b, options) do
-    cond do
-      decimal = maybe_decimal(param_a, options) ->
-        new(param_b, decimal, options)
+    # An invalid `:locale` option means neither parameter could ever be
+    # parsed as a localized amount, so surface the locale error rather
+    # than falling through to the generic "unable to create money" error
+    # which would hide the real cause.
+    with {:ok, _locale} <- validate_locale_option(options) do
+      cond do
+        decimal = maybe_decimal(param_a, options) ->
+          new(param_b, decimal, options)
 
-      decimal = maybe_decimal(param_b, options) ->
-        new(param_a, decimal, options)
+        decimal = maybe_decimal(param_b, options) ->
+          new(param_a, decimal, options)
 
-      true ->
-        {:error, invalid_money_error(param_a, param_b)}
+        true ->
+          {:error, invalid_money_error(param_a, param_b)}
+      end
+    end
+  end
+
+  defp validate_locale_option(options) do
+    case Keyword.get(options, :locale) do
+      nil ->
+        {:ok, nil}
+
+      locale ->
+        case Localize.validate_locale(locale) do
+          {:ok, locale} ->
+            {:ok, locale}
+
+          {:error, exception} ->
+            {:error,
+             {Money.Invalid, "The :locale option is invalid. " <> Exception.message(exception)}}
+        end
     end
   end
 
@@ -338,10 +361,9 @@ defmodule Money do
     new!(currency_code, amount, options)
   end
 
-  def new!(currency_code, %Decimal{} = amount, options)
-      when is_binary(currency_code) or is_atom(currency_code) do
-    new!(currency_code, amount, options)
-  end
+  # Note: a clause `new!(currency_code, %Decimal{} = amount, options)` is not
+  # needed (and was removed): the first clause's guard on `currency_code`
+  # already matches that call shape.
 
   @doc """
   Returns a `t:Money.t/0` from a currency code and a float amount, or
@@ -2146,7 +2168,8 @@ defmodule Money do
       [Money.new(:USD, "0.67"), Money.new(:USD, "0.66"), Money.new(:USD, "0.67")]
 
   """
-  @spec spread(Money.t(), list(Money.t()) | list(number()) | integer()) :: list(Money.t())
+  @spec spread(Money.t(), list(Money.t()) | list(number()) | integer()) ::
+          list(Money.t()) | {:error, {module(), String.t()}}
   def spread(amount, portions, options \\ [])
   def spread([], _, _), do: []
 
@@ -2155,8 +2178,14 @@ defmodule Money do
   end
 
   def spread(%Money{} = amount, [h | _] = portions, options) do
-    {shares, _, _} = recurse_spread(portions, spread_zero(h), round(amount), options)
-    shares
+    # `round/2` returns an error tuple when the money's currency cannot be
+    # resolved (for example a runtime-registered custom currency that is no
+    # longer in the store). Propagate it rather than crashing in the
+    # arithmetic below.
+    with %Money{} = rounded <- round(amount) do
+      {shares, _, _} = recurse_spread(portions, spread_zero(h), rounded, options)
+      shares
+    end
   end
 
   def spread(_, _, _), do: raise("Amount to spread must be Money.t()")
@@ -2685,12 +2714,11 @@ defmodule Money do
 
   """
   def to_integer_exp(%Money{} = money, options \\ []) do
-    new_money =
-      money
-      |> Money.round(options)
-      |> Money.normalize()
-
-    with {:ok, remainder} <- Money.sub(money, new_money),
+    # `round/2` returns an error tuple when the money's currency cannot be
+    # resolved; propagate it rather than crashing in `normalize/1`.
+    with %Money{} = rounded <- Money.round(money, options),
+         new_money = Money.normalize(rounded),
+         {:ok, remainder} <- Money.sub(money, new_money),
          {:ok, currency} <- Money.Currency.currency_for_code(money.currency),
          {:ok, exponent, _options} <- digits_from_options(currency, options) do
       exponent_adjustment = Kernel.abs(-exponent - new_money.amount.exp)

@@ -635,9 +635,10 @@ defmodule Money.Subscription do
       {:error,
        {Money.Subscription.PlanPending, "Can't change plan when a new plan is already pending"}}
     else
-      {:ok, changes} = change_plan(current_plan, new_plan, options)
-      updated_subscription = %{subscription | plans: [{changes, new_plan} | plans]}
-      {:ok, updated_subscription}
+      with {:ok, changes} <- change_plan(current_plan, new_plan, options) do
+        updated_subscription = %{subscription | plans: [{changes, new_plan} | plans]}
+        {:ok, updated_subscription}
+      end
     end
   end
 
@@ -701,37 +702,27 @@ defmodule Money.Subscription do
   end
 
   defp change_plan(current_plan, new_plan, effective_date, options) do
-    credit = plan_credit(current_plan, effective_date, options)
-    {:ok, prorate(new_plan, credit, effective_date, options[:prorate], options)}
+    # `plan_credit/3` and `prorate/5` round money amounts; rounding returns an
+    # error tuple when the plan's currency cannot be resolved (for example a
+    # runtime-registered custom currency that is no longer in the store).
+    # Propagate the error rather than crashing in the arithmetic below.
+    with %Money{} = credit <- plan_credit(current_plan, effective_date, options),
+         %Change{} = change <- prorate(new_plan, credit, effective_date, options[:prorate], options) do
+      {:ok, change}
+    end
   end
 
   # Reduce the price of the first interval of the new plan by the
   # credit amount on the current plan
   defp prorate(plan, credit_amount, effective_date, :price, options) do
-    prorate_price =
+    rounded_price =
       Map.get(plan, :price)
       |> Money.sub!(credit_amount)
       |> Money.round(rounding_mode: options[:round])
 
-    zero = zero(plan)
-
-    {first_billing_amount, carry_forward} =
-      if Money.compare(prorate_price, zero) == :lt do
-        {zero, prorate_price}
-      else
-        {prorate_price, zero}
-      end
-
-    %Change{
-      first_interval_starts: effective_date,
-      first_billing_amount: first_billing_amount,
-      next_interval_starts: next_interval_starts(plan, effective_date, options),
-      credit_amount: credit_amount,
-      credit_amount_applied: Money.add!(credit_amount, carry_forward),
-      credit_days_applied: 0,
-      credit_period_ends: nil,
-      carry_forward: carry_forward
-    }
+    with %Money{} = prorate_price <- rounded_price do
+      build_price_prorate(plan, prorate_price, credit_amount, effective_date, options)
+    end
   end
 
   # Extend the first interval of the new plan by the amount of credit
@@ -755,6 +746,28 @@ defmodule Money.Subscription do
     }
   end
 
+  defp build_price_prorate(plan, prorate_price, credit_amount, effective_date, options) do
+    zero = zero(plan)
+
+    {first_billing_amount, carry_forward} =
+      if Money.compare(prorate_price, zero) == :lt do
+        {zero, prorate_price}
+      else
+        {prorate_price, zero}
+      end
+
+    %Change{
+      first_interval_starts: effective_date,
+      first_billing_amount: first_billing_amount,
+      next_interval_starts: next_interval_starts(plan, effective_date, options),
+      credit_amount: credit_amount,
+      credit_amount_applied: Money.add!(credit_amount, carry_forward),
+      credit_days_applied: 0,
+      credit_period_ends: nil,
+      carry_forward: carry_forward
+    }
+  end
+
   defp plan_credit(%{price: price} = plan, effective_date, options) do
     plan_days = plan_days(plan, effective_date, options)
     price_per_day = Decimal.div(price.amount, Decimal.new(plan_days))
@@ -762,10 +775,13 @@ defmodule Money.Subscription do
     days_remaining =
       days_remaining(plan, options[:current_interval_started], effective_date, options)
 
-    price_per_day
-    |> Decimal.mult(Decimal.new(days_remaining))
-    |> Money.new(price.currency)
-    |> Money.round(rounding_mode: options[:round])
+    credit_amount = Decimal.mult(price_per_day, Decimal.new(days_remaining))
+
+    # `Money.new/2` returns an error tuple when the plan's currency cannot be
+    # resolved; propagate it rather than piping it into `Money.round/2`.
+    with %Money{} = credit <- Money.new(credit_amount, price.currency) do
+      Money.round(credit, rounding_mode: options[:round])
+    end
   end
 
   # Extend the interval by the amount that
