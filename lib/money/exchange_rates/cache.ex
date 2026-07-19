@@ -31,6 +31,8 @@ defmodule Money.ExchangeRates.Cache do
   same pattern.
   """
 
+  alias Money.ExchangeRates
+
   @typedoc "A reference to a retriever's cache storage, returned by `c:init/1`."
   @type cache :: any()
 
@@ -60,20 +62,22 @@ defmodule Money.ExchangeRates.Cache do
   Retrieve the latest exchange rates from the
   cache.
   """
-  @callback latest_rates(cache()) :: {:ok, map()} | {:error, {Exception.t(), String.t()}}
+  @callback latest_rates(cache()) ::
+              {:ok, ExchangeRates.t()} | {:error, {Exception.t(), String.t()}}
 
   @doc deprecated: "Use latest_rates/1 instead"
-  @callback latest_rates() :: {:ok, map()} | {:error, {Exception.t(), String.t()}}
+  @callback latest_rates() :: {:ok, ExchangeRates.t()} | {:error, {Exception.t(), String.t()}}
 
   @doc """
   Retrieve the exchange rates for a given
   date.
   """
   @callback historic_rates(cache(), Date.t()) ::
-              {:ok, map()} | {:error, {Exception.t(), String.t()}}
+              {:ok, ExchangeRates.t()} | {:error, {Exception.t(), String.t()}}
 
   @doc deprecated: "Use historic_rates/2 instead"
-  @callback historic_rates(Date.t()) :: {:ok, map()} | {:error, {Exception.t(), String.t()}}
+  @callback historic_rates(Date.t()) ::
+              {:ok, ExchangeRates.t()} | {:error, {Exception.t(), String.t()}}
 
   @doc """
   Return the timestamp when the exchange rates were last updated.
@@ -86,19 +90,19 @@ defmodule Money.ExchangeRates.Cache do
   @doc """
   Store the latest exchange rates in the cache.
   """
-  @callback store_latest_rates(cache(), map(), DateTime.t()) :: :ok
+  @callback store_latest_rates(cache(), ExchangeRates.t(), DateTime.t()) :: :ok
 
   @doc deprecated: "Use store_latest_rates/3 instead"
-  @callback store_latest_rates(map(), DateTime.t()) :: :ok
+  @callback store_latest_rates(ExchangeRates.t(), DateTime.t()) :: :ok
 
   @doc """
   Store the historic exchange rates for a given
   date in the cache.
   """
-  @callback store_historic_rates(cache(), map(), Date.t()) :: :ok
+  @callback store_historic_rates(cache(), ExchangeRates.t(), Date.t()) :: :ok
 
   @doc deprecated: "Use store_historic_rates/3 instead"
-  @callback store_historic_rates(map(), Date.t()) :: :ok
+  @callback store_historic_rates(ExchangeRates.t(), Date.t()) :: :ok
 
   @optional_callbacks init: 0,
                       terminate: 0,
