@@ -56,6 +56,10 @@ defmodule Money.ExchangeRates.Retriever do
 
   alias Money.ExchangeRates
 
+  # A `GenServer.server/0`: a pid, a locally registered atom, or a
+  # `{:global, _}` / `{:via, _, _}` / `{atom, node}` tuple.
+  defguardp is_retriever(name) when is_atom(name) or is_pid(name) or is_tuple(name)
+
   @doc deprecated: "Use `Supervisor.start_child/2` on your application's supervisor instead"
   @spec start(GenServer.name(), ExchangeRates.Config.t()) :: GenServer.on_start()
   def start(name \\ __MODULE__, config \\ ExchangeRates.config()) do
@@ -109,7 +113,7 @@ defmodule Money.ExchangeRates.Retriever do
   @spec latest_rates(GenServer.server()) ::
           {:ok, ExchangeRates.t()} | {:error, {Exception.t(), binary}}
   def latest_rates(retriever \\ __MODULE__) do
-    case Process.whereis(retriever) do
+    case GenServer.whereis(retriever) do
       nil -> {:error, exchange_rate_service_error()}
       pid -> GenServer.call(pid, :latest_rates)
     end
@@ -151,15 +155,15 @@ defmodule Money.ExchangeRates.Retriever do
   @spec historic_rates(GenServer.server(), Calendar.date()) ::
           {:ok, ExchangeRates.t()} | {:error, {Exception.t(), binary}}
   def historic_rates(retriever, %Date{calendar: Calendar.ISO} = date)
-      when is_atom(retriever) or is_pid(retriever) do
-    case Process.whereis(retriever) do
+      when is_retriever(retriever) do
+    case GenServer.whereis(retriever) do
       nil -> {:error, exchange_rate_service_error()}
       pid -> GenServer.call(pid, {:historic_rates, date})
     end
   end
 
   def historic_rates(retriever, %{year: year, month: month, day: day})
-      when is_atom(retriever) or is_pid(retriever) do
+      when is_retriever(retriever) do
     case Date.new(year, month, day) do
       {:ok, date} -> historic_rates(retriever, date)
       error -> error
@@ -170,7 +174,7 @@ defmodule Money.ExchangeRates.Retriever do
           [{:ok, ExchangeRates.t()} | {:error, {Exception.t(), binary}}]
           | {:error, {Exception.t(), binary}}
   def historic_rates(retriever, %Date.Range{} = range) do
-    case Process.whereis(retriever) do
+    case GenServer.whereis(retriever) do
       nil -> {:error, exchange_rate_service_error()}
       _pid -> for date <- range, do: historic_rates(retriever, date)
     end
@@ -229,7 +233,7 @@ defmodule Money.ExchangeRates.Retriever do
   """
   @spec latest_rates_available?(GenServer.server()) :: boolean
   def latest_rates_available?(retriever \\ __MODULE__) do
-    case Process.whereis(retriever) do
+    case GenServer.whereis(retriever) do
       nil -> false
       pid -> GenServer.call(pid, :latest_rates_available?)
     end
@@ -248,7 +252,7 @@ defmodule Money.ExchangeRates.Retriever do
   """
   @spec last_updated(GenServer.server()) :: {:ok, DateTime.t()} | {:error, {Exception.t(), binary}}
   def last_updated(retriever \\ __MODULE__) do
-    case Process.whereis(retriever) do
+    case GenServer.whereis(retriever) do
       nil -> {:error, exchange_rate_service_error()}
       pid -> GenServer.call(pid, :last_updated)
     end
@@ -262,7 +266,7 @@ defmodule Money.ExchangeRates.Retriever do
   @spec reconfigure(GenServer.name(), ExchangeRates.Config.t()) ::
           ExchangeRates.Config.t() | {:error, {module(), String.t()}}
   def reconfigure(retriever \\ __MODULE__, %ExchangeRates.Config{} = config) do
-    case Process.whereis(retriever) do
+    case GenServer.whereis(retriever) do
       nil -> {:error, exchange_rate_service_error()}
       pid -> GenServer.call(pid, {:reconfigure, config})
     end
@@ -276,7 +280,7 @@ defmodule Money.ExchangeRates.Retriever do
   @spec config(GenServer.name()) ::
           ExchangeRates.Config.t() | {:error, {module(), String.t()}}
   def config(retriever \\ __MODULE__) do
-    case Process.whereis(retriever) do
+    case GenServer.whereis(retriever) do
       nil -> {:error, exchange_rate_service_error()}
       pid -> GenServer.call(pid, :config)
     end

@@ -296,30 +296,36 @@ defmodule Money.ExchangeRates.RetrieverTest do
       {:ok, registry: registry}
     end
 
-    test "boots and serves latest and historic rates through its cache", %{registry: registry} do
-      name = {:via, Registry, {registry, :bid}}
-      pid = start_supervised!({Retriever, name: name}, id: :via_bid)
-      _ = :sys.get_state(pid)
+    test "the public lookup API accepts the {:via, ...} name", %{registry: registry} do
+      name = {:via, Registry, {registry, :rates}}
+      pid = start_supervised!({Retriever, name: name}, id: :retriever_rates)
 
       assert GenServer.whereis(name) == pid
 
-      assert {:ok, %{USD: _}} = GenServer.call(pid, :latest_rates)
+      refute Retriever.latest_rates_available?(name)
 
-      assert {:ok, %{AUD: Decimal.new("0.5"), EUR: Decimal.new("1.1"), USD: Decimal.new("0.7")}} ==
-               GenServer.call(pid, {:historic_rates, ~D[2017-01-01]})
+      assert {:ok, %{USD: _}} = Retriever.latest_rates(name)
+      assert Retriever.latest_rates_available?(name)
+      assert {:ok, %DateTime{}} = Retriever.last_updated(name)
+
+      assert Retriever.historic_rates(name, ~D[2017-01-01]) ==
+               {:ok, %{AUD: Decimal.new("0.5"), EUR: Decimal.new("1.1"), USD: Decimal.new("0.7")}}
+
+      assert [{:ok, _}, {:ok, _}] =
+               Retriever.historic_rates(name, ~D[2017-01-01], ~D[2017-01-02])
     end
 
     test "keeps its cache isolated from another named retriever", %{registry: registry} do
-      bid = start_supervised!({Retriever, name: {:via, Registry, {registry, :bid}}}, id: :via_bid)
-      ask = start_supervised!({Retriever, name: {:via, Registry, {registry, :ask}}}, id: :via_ask)
-      _ = :sys.get_state(bid)
-      _ = :sys.get_state(ask)
+      foo = {:via, Registry, {registry, :foo}}
+      bar = {:via, Registry, {registry, :bar}}
+      start_supervised!({Retriever, name: foo}, id: :retriever_foo)
+      start_supervised!({Retriever, name: bar}, id: :retriever_bar)
 
-      # Populate only the bid retriever's cache; the ask retriever must not see it.
-      assert {:ok, _rates} = GenServer.call(bid, :latest_rates)
+      # Populate only the foo retriever's cache; the bar retriever must not see it.
+      assert {:ok, _rates} = Retriever.latest_rates(foo)
 
-      assert GenServer.call(bid, :latest_rates_available?)
-      refute GenServer.call(ask, :latest_rates_available?)
+      assert Retriever.latest_rates_available?(foo)
+      refute Retriever.latest_rates_available?(bar)
     end
   end
 
