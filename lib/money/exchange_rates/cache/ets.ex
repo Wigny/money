@@ -7,34 +7,24 @@ defmodule Money.ExchangeRates.Cache.Ets do
   use Money.ExchangeRates.Cache.EtsDets
 
   @impl true
-  def init(name) do
-    if :ets.info(name) == :undefined do
-      :ets.new(name, [
-        :named_table,
-        :public,
-        read_concurrency: true
-      ])
-    else
-      name
-    end
+  def init(_name) do
+    :ets.new(__MODULE__, [:public, read_concurrency: true])
   end
 
   @impl true
-  def terminate(_table) do
+  def terminate(_tid) do
     :ok
   end
 
-  defp get(table, key) do
-    with tid when tid != :undefined <- :ets.whereis(table),
-         [{^key, value}] <- :ets.lookup(tid, key) do
-      value
-    else
+  defp get(tid, key) do
+    case :ets.lookup(tid, key) do
+      [{^key, value}] -> value
       _ -> nil
     end
   end
 
-  defp put(table, key, value) do
-    :ets.insert(table, {key, value})
+  defp put(tid, key, value) do
+    :ets.insert(tid, {key, value})
     value
   end
 end

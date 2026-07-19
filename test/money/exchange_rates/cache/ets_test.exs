@@ -9,27 +9,35 @@ defmodule Money.ExchangeRates.Cache.EtsTest do
   @date ~D[2099-01-01]
 
   setup do
-    name = :"ets_test_#{System.unique_integer([:positive])}"
-    cache = Ets.init(name)
+    cache = Ets.init(:"ets_test_#{System.unique_integer([:positive])}")
 
     {:ok, cache: cache}
   end
 
   describe "init/1" do
-    test "returns a usable ETS table reference", %{cache: cache} do
-      assert :ets.info(cache) != :undefined
+    test "accepts a non-atom name and returns a usable handle" do
+      cache = Ets.init({:via, Registry, {SomeRegistry, :bid}})
+
+      retrieved_at = DateTime.utc_now()
+      Ets.store_latest_rates(cache, @rates, retrieved_at)
+      assert Ets.latest_rates(cache) == {:ok, @rates}
     end
 
-    test "reuses an existing table instead of raising", %{cache: cache} do
-      assert Ets.init(cache) == cache
-      assert :ets.info(cache) != :undefined
+    test "returns an isolated cache on each call" do
+      other = Ets.init(:"ets_test_#{System.unique_integer([:positive])}")
+
+      Ets.store_latest_rates(other, @rates, DateTime.utc_now())
+
+      assert Ets.latest_rates(other) == {:ok, @rates}
+
+      assert Ets.latest_rates(Ets.init(:another)) ==
+               {:error, {Money.ExchangeRateError, "No exchange rates were found"}}
     end
   end
 
   describe "terminate/1" do
-    test "is a no-op that leaves the underlying table intact", %{cache: cache} do
+    test "returns :ok", %{cache: cache} do
       assert Ets.terminate(cache) == :ok
-      assert :ets.info(cache) != :undefined
     end
   end
 

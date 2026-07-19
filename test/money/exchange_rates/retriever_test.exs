@@ -289,6 +289,40 @@ defmodule Money.ExchangeRates.RetrieverTest do
     end
   end
 
+  describe "a retriever registered under a non-atom name" do
+    setup do
+      registry = :"via_registry_#{System.unique_integer([:positive])}"
+      start_supervised!({Registry, keys: :unique, name: registry})
+      {:ok, registry: registry}
+    end
+
+    test "boots and serves latest and historic rates through its cache", %{registry: registry} do
+      name = {:via, Registry, {registry, :bid}}
+      pid = start_supervised!({Retriever, name: name}, id: :via_bid)
+      _ = :sys.get_state(pid)
+
+      assert GenServer.whereis(name) == pid
+
+      assert {:ok, %{USD: _}} = GenServer.call(pid, :latest_rates)
+
+      assert {:ok, %{AUD: Decimal.new("0.5"), EUR: Decimal.new("1.1"), USD: Decimal.new("0.7")}} ==
+               GenServer.call(pid, {:historic_rates, ~D[2017-01-01]})
+    end
+
+    test "keeps its cache isolated from another named retriever", %{registry: registry} do
+      bid = start_supervised!({Retriever, name: {:via, Registry, {registry, :bid}}}, id: :via_bid)
+      ask = start_supervised!({Retriever, name: {:via, Registry, {registry, :ask}}}, id: :via_ask)
+      _ = :sys.get_state(bid)
+      _ = :sys.get_state(ask)
+
+      # Populate only the bid retriever's cache; the ask retriever must not see it.
+      assert {:ok, _rates} = GenServer.call(bid, :latest_rates)
+
+      assert GenServer.call(bid, :latest_rates_available?)
+      refute GenServer.call(ask, :latest_rates_available?)
+    end
+  end
+
   describe "startup scheduling and preload" do
     test "a retrieval interval logs the init message and fetches on demand" do
       config = %{

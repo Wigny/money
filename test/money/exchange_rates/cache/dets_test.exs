@@ -18,8 +18,12 @@ defmodule Money.ExchangeRates.Cache.DetsTest do
   end
 
   describe "init/1" do
-    test "returns the table name", %{cache: cache} do
-      assert is_atom(cache)
+    test "accepts a non-atom name and returns a usable handle" do
+      cache = Dets.init({:via, Registry, {SomeRegistry, :bid}})
+      on_exit(fn -> Dets.terminate(cache) end)
+
+      Dets.store_latest_rates(cache, @rates, DateTime.utc_now())
+      assert Dets.latest_rates(cache) == {:ok, @rates}
     end
   end
 
